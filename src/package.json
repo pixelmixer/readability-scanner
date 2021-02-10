@@ -1,0 +1,13 @@
+{
+  "name": "readability-scanner",
+  "version": "1.0.0",
+  "description": "Crawls a url using mozilla page reader",
+  "main": "index.js",
+  "author": "Dustin Sparks",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.17.1",
+    "node-fetch": "^2.6.1",
+    "string-strip-html": "^8.2.0"
+  }
+}

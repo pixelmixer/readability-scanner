@@ -1,0 +1,29 @@
+version: "3.7"
+services:
+  readability:
+    image: phpdockerio/readability-js-server
+    networks:
+      - readable
+    expose:
+      - "3000"
+    restart: unless-stopped
+
+  proxy-scanner:
+    build:
+      context: ./
+    networks:
+      - readable
+    depends_on:
+      - readability
+    ports:
+      - '49160:8080'
+    volumes:
+      - './src:/usr/src/app'
+      - 'node_modules:/usr/src/app/node_modules'
+    restart: unless-stopped
+
+volumes:
+  node_modules:
+
+networks:
+  readable:
