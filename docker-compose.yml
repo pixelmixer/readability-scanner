@@ -11,19 +11,63 @@ services:
   proxy-scanner:
     build:
       context: ./
+    develop:
+      watch:
+        # sync static content
+        - path: ./src
+          action: sync
+          target: /usr/src/app
+          ignore:
+            - node_modules/
+
     networks:
       - readable
     depends_on:
       - readability
+      - readability-database
+      - rss-bridge
     ports:
-      - '49160:8080'
+      - "4912:8080"
     volumes:
-      - './src:/usr/src/app'
-      - 'node_modules:/usr/src/app/node_modules'
+      - "./src:/usr/src/app"
     restart: unless-stopped
 
-volumes:
-  node_modules:
+  readability-database:
+    image: mongo
+    networks:
+      - readable
+    environment:
+      - PUID=1000
+      - PGID=1000
+    volumes:
+      - "E:\\NewsDatabase:/data/db"
+    ports:
+      - 27017:27017
+    restart: unless-stopped
+
+  rss-bridge:
+    image: rssbridge/rss-bridge:latest
+    networks:
+      - readable
+    volumes:
+      - ./rss-bridge/whitelist.txt:/app/whitelist.txt
+      - ./rss-bridge/bridges:/app/bridges
+    ports:
+      - 3939:80
+    restart: unless-stopped
+
+  hug:
+    build: ./hug/
+    command: hug -f hug.py
+    networks:
+      - readable
+    depends_on:
+      - readability-database
+    ports:
+      - 3839:8000
+    volumes:
+      - ./hug/.:/src
+    restart: unless-stopped
 
 networks:
   readable:

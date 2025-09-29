@@ -5,9 +5,40 @@
   "main": "index.js",
   "author": "Dustin Sparks",
   "license": "ISC",
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
+    "@tensorflow-models/toxicity": "^1.2.2",
+    "@tensorflow/tfjs": "^3.8.0",
+    "automated-readability": "^1.0.5",
+    "coleman-liau": "^1.0.5",
+    "countable": "^3.0.1",
+    "cronstrue": "^1.92.0",
+    "dale-chall-formula": "^1.0.5",
+    "dotenv": "^8.2.0",
+    "ejs": "^3.1.6",
     "express": "^4.17.1",
+    "express-ejs-layouts": "^2.5.0",
+    "flesch": "^1.0.5",
+    "flesch-kincaid": "^1.0.5",
+    "google-palette": "^1.1.0",
+    "gunning-fog": "^1.0.6",
+    "html-to-text": "^7.0.0",
+    "json2csv": "^5.0.6",
+    "moment": "^2.29.1",
+    "mongo": "^0.1.0",
+    "mongodb": "^3.6.4",
+    "node-cron": "^2.0.3",
+    "node-excel-export": "^1.4.4",
     "node-fetch": "^2.6.1",
-    "string-strip-html": "^8.2.0"
+    "nodemon": "^2.0.7",
+    "normalize-html-whitespace": "^1.0.0",
+    "rss-parser": "^3.12.0",
+    "smog-formula": "^1.0.5",
+    "spache-formula": "^1.0.5",
+    "striptags": "^3.1.1",
+    "syllable": "^4.1.0",
+    "tfjs-node-save": "^0.0.2"
   }
 }

@@ -1,0 +1,8 @@
+services:
+  hug:
+    build: .
+    command: nodemon --exec hug -f hug.py
+    ports:
+      - "8000"
+    volumes:
+      - .:/src

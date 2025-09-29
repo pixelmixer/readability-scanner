@@ -1,0 +1,5 @@
+hug
+pymongo
+pandas
+sklearn
+numpy<2.0

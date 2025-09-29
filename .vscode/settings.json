@@ -1,0 +1,7 @@
+{
+  "python.pythonPath": "C:\\Users\\pixelmixer\\.pyenv\\pyenv-win\\versions\\3.8.0\\python.exe",
+  "[python]": {
+    "editor.defaultFormatter": "ms-python.autopep8"
+  },
+  "python.formatting.provider": "none"
+}

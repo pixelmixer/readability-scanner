@@ -1,0 +1,101 @@
+<!-- Latest compiled and minified CSS -->
+<link rel="stylesheet" href="https://unpkg.com/bootstrap-table@1.18.2/dist/bootstrap-table.min.css">
+
+<div class="bg-light p-2 position-fixed row w-100" style="top:0; left: 1rem; z-index: 100;">
+	<div class="col-12 text-center">
+		<div><strong><%- dates.formattedStart %></strong> to <strong><%- dates.formattedEnd %></strong></div>
+		<div><small>(<%- dates.duration %> day<% dates.duration == 1 ? '' : 's' %>)</small></div>
+	</div>
+</div>
+
+<div class="bg-light p-2 position-fixed row w-100"  style="bottom:0; left: 1rem; z-index: 100;">
+	<div class="d-flex justify-content-between w-100">
+		<a class="btn btn-primary text-white" href="?start=<%- dates.previous %>&end=<%- dates.formattedStart %>">Previous</a>
+		<a class="btn btn-primary text-white" href="?start=<%- dates.formattedEnd %>&end=<%- dates.next %>">Next</a>
+	</div>
+</div>
+<%
+	function componentToHex(c) {
+        var hex = c.toString(16);
+        return hex.length == 1 ? "0" + hex : hex;
+    }
+
+    function rgbToHex(r, g, b) {
+        return "#" + componentToHex(r) + componentToHex(g) + componentToHex(b);
+    }
+
+    function makeBackground(reliability, bias){
+        const reliabilityRange = {min: 0, max: 64}
+        const biasRange = {min:-42, max:42}
+
+        const biasRatio = (bias + biasRange.max) / (Math.abs(biasRange.min) + Math.abs(biasRange.max))
+        const reliabilityRatio = (reliability + reliabilityRange.max) / (Math.abs(reliabilityRange.min) + Math.abs(reliabilityRange.max)) - 1
+
+        return rgbToHex(Math.round(biasRatio * 255), 0, 255-Math.round(biasRatio * 255))
+    }
+%>
+
+<div class="table-responsive pt-5 mb-5 pb-3">
+	<table class="table mt-3" data-show-button-text="true" data-search="true" data-toggle="table" data-show-columns="true" >
+    <caption>News readbility scores from <%- dates.formattedStart %> to <%- dates.formattedEnd %></caption>
+		<thead class="thead-dark">
+			<tr>
+				<th scope="col" data-sortable="true" data-switchable="false">Source</th>
+				<th scope="col" data-sortable="true">Reliability</th>
+				<th scope="col" data-sortable="true">Bias</th>
+				<th scope="col" data-sortable="true">Avg. Words</th>
+				<th scope="col" data-sortable="true">Avg. Characters</th>
+				<th scope="col" data-sortable="true">Avg. Sentences</th>
+				<th scope="col" data-sortable="true">Avg. Paragraphs</th>
+				<th scope="col" data-sortable="true">Avg. Syllables</th>
+				<th scope="col" data-sortable="true">Avg. Complex Syllables</th>
+				<th scope="col" data-sortable="true">Avg. Syllables/word</th>
+				<th scope="col" data-sortable="true">Avg. Flesch</th>
+				<th scope="col" data-sortable="true">Avg. Flesch Kincaid</th>
+				<th scope="col" data-sortable="true">Avg. Smog</th>
+				<th scope="col" data-sortable="true">Avg. Dale Chall</th>
+				<th scope="col" data-sortable="true">Avg. Coleman Liau</th>
+				<th scope="col" data-sortable="true">Avg. Gunning Fog</th>
+				<th scope="col" data-sortable="true">Avg. Spache</th>
+				<th scope="col" data-sortable="true">Avg. Automated Readability</th>
+			</tr>
+		</thead>
+		<tbody>
+			<% results.forEach((result)=> { %>
+				<tr class="clickable-row" style="cursor: pointer; <%= result['reliability'] && result['bias'] ? 'background-color: ' + makeBackground(result['reliability'], result['bias']) + "55;" : "" %>" data-href="/source/<%= result['_id'] %>?start=<%- dates.formattedStart %>&end=<%- dates.formattedEnd %>">
+					<th scope="row">
+						<div><a href="<%= result['origin'] %>"><%= result['name'] %></a></div>
+					</th>
+					<td><%= result['reliability'] ? result['reliability'] : 'N/A' %></td>
+					<td><%= result['bias'] ? result['bias'] : 'N/A' %></td>
+					<td><%= result['words'] ? result['words'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['characters'] ? result['characters'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['sentences'] ? result['sentences'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['paragraphs'] ? result['paragraphs'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['syllables'] ? result['syllables'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['complex polysillabic words'] ? result['complex polysillabic words'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['word syllables'] ? result['word syllables'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['Flesch'] ? result['Flesch'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['Flesch Kincaid'] ? result['Flesch Kincaid'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['Smog'] ? result['Smog'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['Dale Chall'] ? result['Dale Chall'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['Coleman Liau'] ? result['Coleman Liau'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['Gunning Fog'] ? result['Gunning Fog'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['Spache'] ? result['Spache'].toFixed(4) : 'N/A' %></td>
+					<td><%= result['Automated Readability'] ? result['Automated Readability'].toFixed(4) : 'N/A' %></td>
+				</tr>
+				<% }); %>
+		</tbody>
+	</table>
+</div>
+
+
+<!-- Latest compiled and minified JavaScript -->
+<script src="https://unpkg.com/bootstrap-table@1.18.2/dist/bootstrap-table.min.js"></script>
+<script>
+  $(document).ready(function($) {
+    $('table').on('click', '.clickable-row', (e) => {
+        window.location = $(e.currentTarget).data("href");
+    });
+  });
+</script>
