@@ -38,6 +38,21 @@ const countable = require('countable')
 const syllable = require('syllable')
 dotenv.config()
 
+// User agents for rotation to avoid bot detection
+const USER_AGENTS = [
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/119.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/119.0',
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15'
+];
+
+// Get a random user agent
+const getRandomUserAgent = () => {
+  return USER_AGENTS[Math.floor(Math.random() * USER_AGENTS.length)];
+};
+
 const client = new MongoClient('mongodb://readability-database:27017', {
   useUnifiedTopology: true,
   useNewUrlParser: true
@@ -195,7 +210,16 @@ const startCron = () => {
       await Promise.all(urlList.map(async (url) => {
         try {
           const result = await scanSingleSource(url);
-          console.log(`Cron scan completed for ${url}: ${result.scanned}/${result.total} articles processed`);
+          if (result.failed && result.failed > 0) {
+            const failureRate = Math.round((result.failed / result.total) * 100);
+            console.log(`Cron scan completed for ${url}: ${result.scanned}/${result.total} articles processed (${result.failed} failed, ${failureRate}% failure rate)`);
+
+            if (failureRate > 75) {
+              console.warn(`⚠️  High failure rate for ${url} during cron scan. Consider reviewing this source.`);
+            }
+          } else {
+            console.log(`✅ Cron scan completed for ${url}: ${result.scanned}/${result.total} articles processed successfully`);
+          }
         } catch (error) {
           console.error(`Error scanning ${url} during cron job:`, error.message);
         }
@@ -252,7 +276,19 @@ const scanSingleSource = async (sourceUrl) => {
 
       console.log(`Found ${feedData.items.length} articles in ${sourceUrl}`);
 
-      const scanPromises = feedData.items.map(async (article) => {
+      // Initialize failure tracking for this scan
+      const failureStats = {
+        total: feedData.items.length,
+        http500: 0,
+        http403: 0,
+        http429: 0,
+        timeout: 0,
+        noContent: 0,
+        other: 0
+      };
+
+      // Process articles with rate limiting and retry logic
+      const scanPromises = feedData.items.map(async (article, index) => {
         try {
           const { title, link, pubDate } = article;
 
@@ -261,31 +297,146 @@ const scanSingleSource = async (sourceUrl) => {
             return false;
           }
 
-          const body = { url: link };
-
-          const response = await fetch('http://readability:3000', {
-            method: 'post',
-            body: JSON.stringify(body),
-            headers: { 'Content-Type': 'application/json' },
-          });
-
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          // Add delay between requests to avoid overwhelming the readability service
+          if (index > 0) {
+            await new Promise(resolve => setTimeout(resolve, 100 * Math.floor(index / 5))); // 100ms delay every 5 articles
           }
 
-          const json = await response.json();
+          let attempts = 0;
+          const maxAttempts = 2;
 
-          if (json.content) {
-            json['publication date'] = new Date(pubDate);
-            json['title'] = title;
-            json['origin'] = sourceUrl;
+          while (attempts < maxAttempts) {
+            try {
+              console.log(`🔍 Processing article ${index + 1}/${feedData.items.length}: ${link.substring(0, 80)}...`);
 
-            await parseAndSaveResponse(json);
-            return true;
-          } else {
-            console.warn(`No content extracted for: ${link}`);
-            return false;
+              // Use rotating user agents to avoid detection
+              const userAgent = getRandomUserAgent();
+              const requestBody = {
+                url: link,
+                // Add user agent to the request body for the readability service
+                headers: {
+                  'User-Agent': userAgent
+                }
+              };
+
+              console.log(`🕵️ Using User-Agent: ${userAgent.substring(0, 50)}...`);
+
+              const response = await fetch('http://readability:3000', {
+                method: 'post',
+                body: JSON.stringify(requestBody),
+                headers: {
+                  'Content-Type': 'application/json',
+                  'User-Agent': 'NewsAnalysis-Scanner/1.0'
+                },
+                timeout: 30000 // 30 second timeout
+              });
+
+              // Enhanced logging for response analysis
+              console.log(`📡 HTTP Response: ${response.status} ${response.statusText} for ${link}`);
+
+              if (!response.ok) {
+                // Capture response details for analysis
+                let responseText = '';
+                try {
+                  responseText = await response.text();
+                } catch (textError) {
+                  console.warn(`Could not read response text: ${textError.message}`);
+                }
+
+                // Log response headers for debugging
+                const headers = {};
+                response.headers.forEach((value, key) => {
+                  headers[key] = value;
+                });
+
+                console.error(`❌ HTTP ${response.status} Error Details:`);
+                console.error(`   URL: ${link}`);
+                console.error(`   Status: ${response.status} ${response.statusText}`);
+                console.error(`   Headers:`, JSON.stringify(headers, null, 2));
+
+                // Log first 500 chars of response for error analysis
+                if (responseText) {
+                  const truncatedResponse = responseText.substring(0, 500);
+                  console.error(`   Response Body (first 500 chars): ${truncatedResponse}`);
+
+                  // Detect common blocking patterns
+                  const lowerResponse = responseText.toLowerCase();
+                  if (lowerResponse.includes('rate limit') || lowerResponse.includes('too many requests')) {
+                    console.warn(`🚫 RATE LIMITING detected for ${link}`);
+                  }
+                  if (lowerResponse.includes('blocked') || lowerResponse.includes('forbidden')) {
+                    console.warn(`🚫 ACCESS BLOCKED detected for ${link}`);
+                  }
+                  if (lowerResponse.includes('robot') || lowerResponse.includes('bot')) {
+                    console.warn(`🤖 BOT DETECTION detected for ${link}`);
+                  }
+                  if (lowerResponse.includes('captcha') || lowerResponse.includes('verify')) {
+                    console.warn(`🔐 CAPTCHA/VERIFICATION detected for ${link}`);
+                  }
+                  if (lowerResponse.includes('cloudflare') || lowerResponse.includes('ddos')) {
+                    console.warn(`☁️ CLOUDFLARE/DDOS PROTECTION detected for ${link}`);
+                  }
+                }
+
+                if (response.status >= 500 && attempts < maxAttempts - 1) {
+                  // Retry on server errors
+                  attempts++;
+                  console.warn(`🔄 Retrying HTTP ${response.status} for ${link} (attempt ${attempts}/${maxAttempts})`);
+                  await new Promise(resolve => setTimeout(resolve, 1000 * attempts)); // Exponential backoff
+                  continue;
+                } else if (response.status === 429) {
+                  // Special handling for rate limiting
+                  failureStats.http429++;
+                  const retryAfter = response.headers.get('retry-after') || (attempts * 5);
+                  console.warn(`⏳ Rate limited! Waiting ${retryAfter} seconds before retry...`);
+                  await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+                  if (attempts < maxAttempts - 1) {
+                    attempts++;
+                    continue;
+                  }
+                } else if (response.status === 403 || response.status === 401) {
+                  failureStats.http403++;
+                  console.warn(`🚫 Access denied (${response.status}) - likely bot detection or authentication required`);
+                  throw new Error(`HTTP ${response.status}: ${response.statusText} - Access denied`);
+                } else if (response.status >= 500) {
+                  failureStats.http500++;
+                  throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                } else {
+                  failureStats.other++;
+                  throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+              }
+
+              const json = await response.json();
+              console.log(`✅ Successfully extracted content from: ${link}`);
+
+              if (json.content) {
+                json['publication date'] = new Date(pubDate);
+                json['title'] = title;
+                json['origin'] = sourceUrl;
+
+                await parseAndSaveResponse(json);
+                return true;
+              } else {
+                failureStats.noContent++;
+                console.warn(`⚠️ No content extracted from readability service for: ${link}`);
+                return false;
+              }
+            } catch (requestError) {
+              attempts++;
+              console.error(`💥 Request failed for ${link} (attempt ${attempts}/${maxAttempts}): ${requestError.message}`);
+
+              if (attempts >= maxAttempts) {
+                console.error(`🔴 Max attempts reached for ${link}. Final error: ${requestError.message}`);
+                throw requestError;
+              } else {
+                console.warn(`🔄 Retrying in ${1000 * attempts}ms...`);
+                await new Promise(resolve => setTimeout(resolve, 1000 * attempts)); // Exponential backoff
+              }
+            }
           }
+
+          return false;
         } catch (articleError) {
           console.error(`Error processing article ${article.link || 'unknown'}:`, articleError.message);
           return false;
@@ -294,9 +445,51 @@ const scanSingleSource = async (sourceUrl) => {
 
       const results = await Promise.all(scanPromises);
       const successCount = results.filter(Boolean).length;
+      const failedCount = feedData.items.length - successCount;
 
-      console.log(`Completed scan of ${sourceUrl}: ${successCount}/${feedData.items.length} articles processed`);
-      resolve({ scanned: successCount, total: feedData.items.length, source: sourceUrl });
+      // Log detailed failure statistics
+      if (failedCount > 0) {
+        const failureRate = Math.round((failedCount / feedData.items.length) * 100);
+        console.log(`📊 Scan Results for ${sourceUrl}:`);
+        console.log(`   ✅ Success: ${successCount}/${feedData.items.length} (${100 - failureRate}%)`);
+        console.log(`   ❌ Failed: ${failedCount}/${feedData.items.length} (${failureRate}%)`);
+        console.log(`   📈 Failure Breakdown:`);
+        if (failureStats.http500 > 0) console.log(`      🔴 HTTP 5xx errors: ${failureStats.http500}`);
+        if (failureStats.http403 > 0) console.log(`      🚫 HTTP 403/401 (blocked): ${failureStats.http403}`);
+        if (failureStats.http429 > 0) console.log(`      ⏳ HTTP 429 (rate limited): ${failureStats.http429}`);
+        if (failureStats.noContent > 0) console.log(`      📄 No content extracted: ${failureStats.noContent}`);
+        if (failureStats.other > 0) console.log(`      ❓ Other errors: ${failureStats.other}`);
+
+        // Provide actionable insights
+        if (failureStats.http403 > failedCount * 0.5) {
+          console.warn(`🤖 DIAGNOSIS: High number of 403 errors suggests bot detection. Consider user-agent rotation.`);
+        }
+        if (failureStats.http429 > failedCount * 0.3) {
+          console.warn(`⏳ DIAGNOSIS: Rate limiting detected. Consider slower request timing.`);
+        }
+        if (failureStats.http500 > failedCount * 0.7) {
+          console.warn(`💥 DIAGNOSIS: High server errors. Readability service may be struggling with this site's content.`);
+        }
+        if (failureStats.noContent > failedCount * 0.8) {
+          console.warn(`📰 DIAGNOSIS: High 'no content' rate suggests redirect URLs or paywall protection.`);
+          if (sourceUrl.includes('google') || sourceUrl.includes('news.google')) {
+            console.warn(`🔗 Google News feeds often contain redirect URLs that don't extract well. Consider direct publisher feeds.`);
+          }
+        }
+
+        if (failureRate > 75) {
+          console.warn(`⚠️  High failure rate for ${sourceUrl}. This source may have anti-bot protection or content structure issues.`);
+        }
+      } else {
+        console.log(`✅ Completed scan of ${sourceUrl}: ${successCount}/${feedData.items.length} articles processed successfully`);
+      }
+
+      resolve({
+        scanned: successCount,
+        total: feedData.items.length,
+        failed: failedCount,
+        source: sourceUrl
+      });
 
     } catch (error) {
       console.error(`Error scanning source ${sourceUrl}:`, error.message);
@@ -402,7 +595,16 @@ const addSource = async (req, res) => {
     // Start immediate scan of the new source
     scanSingleSource(url)
       .then(result => {
-        console.log(`Immediate scan completed for new source: ${result.scanned}/${result.total} articles processed`);
+        if (result.failed && result.failed > 0) {
+          const failureRate = Math.round((result.failed / result.total) * 100);
+          console.log(`Immediate scan completed for new source: ${result.scanned}/${result.total} articles processed (${result.failed} failed, ${failureRate}% failure rate)`);
+
+          if (failureRate > 50) {
+            console.warn(`⚠️  New source ${url} has high failure rate. Consider checking if this source has anti-bot protection.`);
+          }
+        } else {
+          console.log(`✅ Immediate scan completed for new source: ${result.scanned}/${result.total} articles processed successfully`);
+        }
       })
       .catch(error => {
         console.error(`Immediate scan failed for new source ${url}:`, error);
@@ -447,7 +649,12 @@ const editSource = async (req, res) => {
     scanSingleSource(url)
       .then(result => {
         const scanReason = urlChanged ? 'URL changed' : 'source updated';
-        console.log(`Immediate scan completed for edited source (${scanReason}): ${result.scanned}/${result.total} articles processed`);
+        if (result.failed && result.failed > 0) {
+          const failureRate = Math.round((result.failed / result.total) * 100);
+          console.log(`Immediate scan completed for edited source (${scanReason}): ${result.scanned}/${result.total} articles processed (${result.failed} failed, ${failureRate}% failure rate)`);
+        } else {
+          console.log(`✅ Immediate scan completed for edited source (${scanReason}): ${result.scanned}/${result.total} articles processed successfully`);
+        }
       })
       .catch(error => {
         console.error(`Immediate scan failed for edited source ${url}:`, error);
