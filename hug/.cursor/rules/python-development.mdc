@@ -4,26 +4,122 @@ globs: ["hug/**/*.py", "hug/**/requirements.txt", "hug/**/Dockerfile"]
 alwaysApply: false
 ---
 
-# Python Development Rules (Hug API)
+# Python Development Rules - Modern Standards (Hug API)
 
-## Hug Framework Patterns
+## MANDATORY Python Coding Standards - ENFORCE THESE
 
-### Endpoint Declaration Pattern
+### PEP 8 & Type Hints Requirements
 ```python
+# ✅ ALWAYS use type hints for all function parameters and return values
+from typing import Dict, List, Optional, Union, Any
+from datetime import datetime
+import hug
+import logging
+
+# ✅ ALWAYS use descriptive variable names (PEP 8)
+# ✅ ALWAYS use snake_case for functions and variables
+# ✅ ALWAYS limit lines to 88 characters (Black formatter standard)
+# ✅ ALWAYS use docstrings with Google/NumPy style
+
+logger = logging.getLogger(__name__)
+
 @hug.get('/endpoint')
-def function_name(param1, param2: hug.types.number = default):
-    """Clear docstring explaining endpoint purpose"""
-    return response_data
+def get_endpoint_data(
+    param1: str,
+    param2: Optional[int] = None,
+    limit: int = hug.types.in_range(1, 100, default=10)
+) -> Dict[str, Any]:
+    """Get endpoint data with proper validation and type hints.
+    
+    Args:
+        param1: Description of the first parameter
+        param2: Optional second parameter for filtering
+        limit: Maximum number of results to return (1-100)
+        
+    Returns:
+        Dictionary containing the response data with success status
+        
+    Raises:
+        ValueError: If param1 is empty or invalid
+        ConnectionError: If database connection fails
+    """
+    if not param1 or not param1.strip():
+        raise ValueError("param1 cannot be empty")
+    
+    try:
+        # Process data with proper error handling
+        result_data = process_data(param1, param2, limit)
+        
+        return {
+            'success': True,
+            'data': result_data,
+            'count': len(result_data) if isinstance(result_data, list) else 1
+        }
+        
+    except Exception as error:
+        logger.error(f"Endpoint error: {error}", exc_info=True)
+        return {
+            'success': False,
+            'error': str(error),
+            'data': None
+        }
+```
 
-# File downloads
+### Modern Hug Framework Patterns
+```python
+# ✅ File downloads with proper type hints and validation
 @hug.get('/download', output=hug.output_format.file)
-def download_file():
-    return './path/to/file'
+def download_file(file_type: str = 'csv') -> str:
+    """Download data file in specified format.
+    
+    Args:
+        file_type: Type of file to download ('csv', 'json', 'xlsx')
+        
+    Returns:
+        Path to the generated file
+        
+    Raises:
+        ValueError: If file_type is not supported
+    """
+    supported_types = {'csv', 'json', 'xlsx'}
+    
+    if file_type not in supported_types:
+        raise ValueError(f"Unsupported file type: {file_type}. "
+                        f"Must be one of: {', '.join(supported_types)}")
+    
+    file_path = generate_data_file(file_type)
+    
+    if not os.path.exists(file_path):
+        raise FileNotFoundError(f"Generated file not found: {file_path}")
+    
+    return file_path
 
-# HTML output for reports
+# ✅ HTML output with proper error handling
 @hug.get('/report', output=hug.output_format.html)
-def generate_report():
-    return df.describe().to_html()
+def generate_report(source: Optional[str] = None) -> str:
+    """Generate HTML report with statistical analysis.
+    
+    Args:
+        source: Optional source filter for the report
+        
+    Returns:
+        HTML string containing the formatted report
+    """
+    try:
+        dataframe = get_analysis_dataframe(source)
+        
+        if dataframe.empty:
+            return "<h2>No data available for the specified criteria</h2>"
+        
+        return dataframe.describe().to_html(
+            classes='table table-striped',
+            table_id='analysis-report',
+            escape=False
+        )
+        
+    except Exception as error:
+        logger.error(f"Report generation failed: {error}", exc_info=True)
+        return f"<h2>Error generating report: {error}</h2>"
 ```
 
 ### MongoDB Integration - SHARED DATABASE

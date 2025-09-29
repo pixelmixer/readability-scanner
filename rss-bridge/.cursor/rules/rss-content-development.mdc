@@ -4,7 +4,7 @@ globs: ["rss-bridge/**/*.php", "rss-bridge/**/whitelist.txt", "rss-bridge/**/bri
 alwaysApply: false
 ---
 
-# RSS-Bridge Development Rules
+# RSS-Bridge Development Rules - Modern PHP Standards
 
 ## Bridge Development Pattern - CRITICAL STRUCTURE
 
