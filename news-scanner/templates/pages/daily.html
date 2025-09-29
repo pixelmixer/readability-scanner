@@ -1,0 +1,108 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h2 mb-3">Daily Readability Report</h1>
+            <p class="text-muted">Aggregated readability metrics by news source</p>
+        </div>
+    </div>
+
+    <!-- Date Range Info -->
+    {% if dates %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>Date Range:</strong><br>
+                            <small class="text-muted">{{ dates.formattedStart }} to {{ dates.formattedEnd }}</small>
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Duration:</strong><br>
+                            <small class="text-muted">{{ dates.duration }} days</small>
+                        </div>
+                        <div class="col-md-6 text-right">
+                            <a href="/daily?start={{ dates.previous }}" class="btn btn-outline-secondary btn-sm">
+                                <i class="fas fa-chevron-left"></i> Previous
+                            </a>
+                            <a href="/daily?start={{ dates.next }}" class="btn btn-outline-secondary btn-sm ml-2">
+                                Next <i class="fas fa-chevron-right"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Results Table -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Readability Metrics by Source</h5>
+                </div>
+                <div class="card-body">
+                    {% if results and results|length > 0 %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Source</th>
+                                        <th>Articles</th>
+                                        <th>Avg Words</th>
+                                        <th>Flesch Score</th>
+                                        <th>Flesch-Kincaid</th>
+                                        <th>SMOG</th>
+                                        <th>Gunning Fog</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for result in results %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ result.name or result._id }}</strong>
+                                            {% if result.origin %}
+                                                <br><small class="text-muted">{{ result.origin }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ result.articles }}</td>
+                                        <td>{{ "%.0f"|format(result.words) if result.words else 'N/A' }}</td>
+                                        <td>{{ "%.1f"|format(result.Flesch) if result.Flesch else 'N/A' }}</td>
+                                        <td>{{ "%.1f"|format(result['Flesch Kincaid']) if result['Flesch Kincaid'] else 'N/A' }}</td>
+                                        <td>{{ "%.1f"|format(result.Smog) if result.Smog else 'N/A' }}</td>
+                                        <td>{{ "%.1f"|format(result['Gunning Fog']) if result['Gunning Fog'] else 'N/A' }}</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="text-center p-4">
+                            <i class="fas fa-chart-bar fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No data available for the selected date range.</p>
+                            <a href="/sources" class="btn btn-primary">Add Sources</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Set page logging
+window.pageLogged = true;
+console.log('📊 Daily Report Page Loaded');
+{% if results %}
+console.log('📈 Report Data:', {{ results|length }} sources);
+{% endif %}
+</script>
+{% endblock %}

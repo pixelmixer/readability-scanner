@@ -1,0 +1,56 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h2 mb-3">Readability Trends Graph</h1>
+            <p class="text-muted">Time-series visualization of readability metrics</p>
+        </div>
+    </div>
+
+    <!-- Coming Soon Notice -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body text-center p-5">
+                    <i class="fas fa-chart-line fa-4x text-muted mb-4"></i>
+                    <h3 class="text-muted">Graph View Coming Soon</h3>
+                    <p class="text-muted mb-4">
+                        Interactive charts and time-series visualizations will be available in a future update.
+                    </p>
+                    <div class="row">
+                        <div class="col-md-6 mx-auto">
+                            <div class="list-group list-group-flush">
+                                <div class="list-group-item border-0">
+                                    <i class="fas fa-check text-success"></i> Flesch score trends over time
+                                </div>
+                                <div class="list-group-item border-0">
+                                    <i class="fas fa-check text-success"></i> Source comparison charts
+                                </div>
+                                <div class="list-group-item border-0">
+                                    <i class="fas fa-check text-success"></i> Interactive date range selection
+                                </div>
+                                <div class="list-group-item border-0">
+                                    <i class="fas fa-check text-success"></i> Export chart data
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <a href="/daily" class="btn btn-primary mt-3">
+                        <i class="fas fa-table"></i> View Daily Report Instead
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+window.pageLogged = true;
+console.log('📈 Graph Page Loaded (Preview)');
+</script>
+{% endblock %}

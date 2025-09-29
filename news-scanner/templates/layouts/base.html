@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>{{ title }}</title>
+
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        {% include 'partials/styles.html' %}
+        {% block extra_styles %}{% endblock %}
+        <style>
+            img {
+                max-width: 100%;
+            }
+        </style>
+    </head>
+
+    <body>
+        <!-- Navigation -->
+        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="/sources">
+                    <i class="fas fa-rss"></i> News Analysis
+                </a>
+                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav">
+                        <li class="nav-item">
+                            <a class="nav-link" href="/sources">
+                                <i class="fas fa-cog"></i> Sources
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/daily">
+                                <i class="fas fa-calendar-day"></i> Daily Report
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/graph">
+                                <i class="fas fa-chart-line"></i> Graph View
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/export">
+                                <i class="fas fa-download"></i> Export
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
+        <main class="mt-4">
+            <div class="container-fluid p-0">
+                <div class="col">
+                    {% block content %}{% endblock %}
+                </div>
+            </div>
+        </main>
+
+        {% include 'partials/scripts.html' %}
+        {% block extra_scripts %}{% endblock %}
+
+        <!-- Build version logging for all pages -->
+        <script>
+        // Only log if we don't have specific page logging
+        if (typeof window.pageLogged === 'undefined') {
+            console.log('🚀 News Analysis System (Python) - Page Loaded');
+            console.log('🔄 Page Load Time:', new Date().toISOString());
+            {% if buildVersion %}
+            console.log('📦 Build Version: {{ buildVersion }}');
+            {% endif %}
+            {% if buildTimestamp %}
+            console.log('⏱️ Build Time: {{ buildTimestamp }}');
+            {% endif %}
+        }
+        </script>
+    </body>
+</html>

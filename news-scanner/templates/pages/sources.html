@@ -1,0 +1,268 @@
+{% extends "layouts/base.html" %}
+
+{% block content %}
+<!-- Sources Management Page -->
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h2 mb-3">News Sources Management</h1>
+            <p class="text-muted">Manage RSS feed sources for news readability analysis</p>
+        </div>
+    </div>
+
+    <!-- Add New Source Form -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Add New Source</h5>
+                </div>
+                <div class="card-body">
+                    <form action="/sources/add" method="POST">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="url">RSS Feed URL *</label>
+                                    <input type="url" class="form-control" id="url" name="url" required
+                                           placeholder="https://feeds.reuters.com/reuters/topNews">
+                                    <small class="form-text text-muted">
+                                        Enter an RSS/XML feed URL, not an API endpoint.
+                                    </small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="name">Source Name</label>
+                                    <input type="text" class="form-control" id="name" name="name"
+                                           placeholder="Optional - will auto-generate from URL">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="description">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="2"
+                                      placeholder="Optional description for this source"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="addSourceBtn">
+                            <i class="fas fa-plus"></i> Add Source
+                        </button>
+                        <small class="form-text text-muted mt-2">
+                            <i class="fas fa-info-circle"></i> New sources will be scanned immediately for articles
+                        </small>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sources List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Current Sources ({{ sources|length }})</h5>
+                    <div class="text-muted">
+                        Total Articles: {{ sources | sum(attribute='article_count') }}
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    {% if sources|length == 0 %}
+                        <div class="text-center p-4">
+                            <i class="fas fa-rss fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No sources configured yet. Add your first RSS feed above.</p>
+                        </div>
+                    {% else %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>Source</th>
+                                        <th>URL</th>
+                                        <th>Articles</th>
+                                        <th>Last Activity</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for source in sources %}
+                                        <tr>
+                                            <td>
+                                                <strong>{{ source.name }}</strong>
+                                                {% if source.description %}
+                                                    <br><small class="text-muted">{{ source.description }}</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <a href="{{ source.url }}" target="_blank" class="text-break">
+                                                    {% if source.url|length > 50 %}
+                                                        {{ source.url[:50] }}...
+                                                    {% else %}
+                                                        {{ source.url }}
+                                                    {% endif %}
+                                                </a>
+                                            </td>
+                                            <td>
+                                                {% if source.article_count > 0 %}
+                                                    <span class="badge badge-success">{{ source.article_count }}</span>
+                                                {% else %}
+                                                    <span class="badge badge-secondary">0</span>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                {% if source.last_refreshed %}
+                                                    <small><strong>Manual:</strong> {{ source.last_refreshed.strftime('%Y-%m-%d') }}</small><br>
+                                                {% endif %}
+                                                {% if source.last_fetched %}
+                                                    <small><strong>Auto:</strong> {{ source.last_fetched.strftime('%Y-%m-%d') }}</small>
+                                                {% elif not source.last_refreshed %}
+                                                    <small class="text-muted">Never scanned</small>
+                                                {% endif %}
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-success refresh-btn"
+                                                        data-source-id="{{ source._id }}"
+                                                        data-source-name="{{ source.name }}"
+                                                        title="Scan this source for new articles">
+                                                    <i class="fas fa-sync"></i> Refresh
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger ml-1 delete-btn"
+                                                        data-source-id="{{ source._id }}"
+                                                        data-source-name="{{ source.name }}">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Confirm Delete</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the source <strong id="deleteSourceName"></strong>?</p>
+                <p class="text-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    This action cannot be undone. All articles from this source will remain in the database.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Delete Source</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Refresh Progress Modal -->
+<div class="modal fade" id="refreshModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Refreshing Source</h5>
+            </div>
+            <div class="modal-body">
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="sr-only">Loading...</span>
+                    </div>
+                    <p class="mt-3">Scanning <strong id="refreshSourceName"></strong> for new articles...</p>
+                    <small class="text-muted">This may take a few moments depending on the number of articles.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+$(document).ready(function() {
+    // Delete source functionality
+    $('.delete-btn').click(function() {
+        const sourceId = $(this).data('source-id');
+        const sourceName = $(this).data('source-name');
+
+        $('#deleteSourceName').text(sourceName);
+        $('#deleteForm').attr('action', `/sources/delete/${sourceId}`);
+        $('#deleteModal').modal('show');
+    });
+
+    // Refresh source functionality
+    $('.refresh-btn').click(function() {
+        const sourceId = $(this).data('source-id');
+        const sourceName = $(this).data('source-name');
+
+        $('#refreshSourceName').text(sourceName);
+        $('#refreshModal').modal('show');
+
+        // Send refresh request
+        $.post(`/sources/refresh/${sourceId}`)
+            .done(function(response) {
+                $('#refreshModal').modal('hide');
+                if (response.success) {
+                    alert(`✅ Refresh completed!\n\nScanned: ${response.result.scanned}/${response.result.total} articles\nSource: ${response.result.source}`);
+                    location.reload(); // Refresh the page to show updated data
+                } else {
+                    alert(`❌ Refresh failed: ${response.error}`);
+                }
+            })
+            .fail(function(xhr) {
+                $('#refreshModal').modal('hide');
+                alert(`❌ Refresh failed: ${xhr.responseJSON?.detail || 'Unknown error'}`);
+            });
+    });
+
+    // Form validation
+    $('#addSourceBtn').click(function(e) {
+        const url = $('#url').val();
+        if (!url) {
+            e.preventDefault();
+            alert('Please enter an RSS feed URL');
+            return;
+        }
+
+        // Basic URL validation
+        try {
+            new URL(url);
+        } catch {
+            e.preventDefault();
+            alert('Please enter a valid URL');
+            return;
+        }
+
+        // Check for API endpoints
+        const urlLower = url.toLowerCase();
+        if (urlLower.includes('/api/') || urlLower.includes('json')) {
+            if (!confirm('This URL looks like an API endpoint. RSS feeds should typically end in .xml, .rss, or contain "rss" or "feed". Are you sure this is correct?')) {
+                e.preventDefault();
+                return;
+            }
+        }
+    });
+});
+
+// Set page logging to prevent duplicate console messages
+window.pageLogged = true;
+console.log('📄 Sources Management Page Loaded');
+console.log('🔄 Active Sources:', {{ sources|length }});
+console.log('📊 Total Articles:', {{ sources | sum(attribute='article_count') }});
+</script>
+{% endblock %}
