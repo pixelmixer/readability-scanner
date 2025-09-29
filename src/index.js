@@ -358,6 +358,32 @@ const addSource = async (req, res) => {
       return res.status(400).send('Invalid URL format');
     }
 
+    // Basic RSS feed validation
+    const urlLower = url.toLowerCase();
+    const isLikelyAPI = urlLower.includes('/api/') ||
+      urlLower.includes('json') ||
+      urlLower.includes('.json') ||
+      urlLower.includes('format=json');
+
+    if (isLikelyAPI) {
+      return res.status(400).send('This appears to be an API endpoint, not an RSS feed. Please use an RSS feed URL (usually ending in .xml, .rss, or containing "rss" or "feed")');
+    }
+
+    // Validate that it's actually an RSS feed by testing it
+    try {
+      console.log(`Validating RSS feed: ${url}`);
+      const testFeed = await feedParser.parseURL(url);
+
+      if (!testFeed || !testFeed.title) {
+        return res.status(400).send('Unable to parse this URL as an RSS feed. Please verify it\'s a valid RSS/XML feed.');
+      }
+
+      console.log(`RSS feed validation successful: ${testFeed.title}`);
+    } catch (feedError) {
+      console.error(`RSS validation failed for ${url}:`, feedError.message);
+      return res.status(400).send(`RSS feed validation failed: ${feedError.message}. Please check that this is a valid RSS feed URL.`);
+    }
+
     await connection;
     const db = client.db(dbName);
     const collection = db.collection('urls');
