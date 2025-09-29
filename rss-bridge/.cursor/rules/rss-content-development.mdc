@@ -1,0 +1,323 @@
+---
+description: RSS-Bridge development for custom news source feeds and content extraction
+globs: ["rss-bridge/**/*.php", "rss-bridge/**/whitelist.txt", "rss-bridge/**/bridges/**"]
+alwaysApply: false
+---
+
+# RSS-Bridge Development Rules
+
+## Bridge Development Pattern - CRITICAL STRUCTURE
+
+### Standard Bridge Template
+```php
+<?php
+class YourSourceBridge extends BridgeAbstract {
+    const NAME = 'Your Source Display Name';
+    const URI = 'https://yoursource.com';
+    const DESCRIPTION = 'Brief description of what this bridge does';
+    const CACHE_TIMEOUT = 3600;        // 1 hour cache
+    const MAINTAINER = 'Your Name';
+
+    public function collectData() {
+        // 1. FETCH HTML with caching
+        $html = getSimpleHTMLDOMCached($this->getURI(), 300);
+        
+        // 2. FIND article containers using CSS selectors
+        $stories = $html->find('.article-container, .news-item, .story');
+        
+        $i = 0;
+        foreach ($stories as $element) {
+            if($i == 15) break;    // Limit articles for performance
+            
+            // 3. EXTRACT required fields
+            $item['uri'] = $this->getURI() . $element->find('a', 0)->href;
+            $item['title'] = $element->find('.headline, h1, h2', 0)->plaintext;
+            $item['timestamp'] = $element->find('.date, .timestamp', 0)->attr['data-source'];
+            $item['author'] = $element->find('.author, .byline', 0)->plaintext;
+            
+            // 4. GET FULL ARTICLE CONTENT (optional but recommended)
+            $articleHtml = getSimpleHTMLDOMCached($item['uri'], 300);
+            $item['content'] = $articleHtml->find('.article-body, .content', 0)->innertext;
+            
+            $this->items[] = $item;
+            $i++;
+        }
+    }
+}
+?>
+```
+
+## Existing Bridge Examples
+
+### APNewsPoliticsBridge Structure
+```php
+class APNewsPoliticsBridge extends BridgeAbstract {
+    const NAME = 'AP: Politics';
+    const URI = 'https://apnews.com/hub/politics';
+    
+    public function collectData() {
+        $html = getSimpleHTMLDOMCached($this->getURI(), 300);
+        $stories = $html->find('.FeedCard');    // AP-specific selector
+        
+        foreach ($stories as $element) {
+            // Extract AP-specific data structure
+            $item['uri'] = $this->getURI() . '/../../..' . $element->find('a', 0)->href;
+            $headline = $element->find('.CardHeadline', 0);
+            $item['title'] = $headline->find('h1', 0)->plaintext;
+            $item['timestamp'] = $headline->find('.Timestamp', 0)->attr['data-source'];
+            
+            // Clean author field
+            $item['author'] = join(", ", explode(" and ", 
+                str_replace("By ", "", $headline->find('span[class^=Component-bylines]', 0)->plaintext)
+            ));
+            
+            // Get full article content
+            $articleHtml = getSimpleHTMLDOMCached($item['uri'], 300);
+            $item['content'] = $articleHtml->find('.Article', 0)->innertext;
+            
+            $this->items[] = $item;
+        }
+    }
+}
+```
+
+## CSS Selector Patterns - ESSENTIAL FOR SCRAPING
+
+### Common News Site Patterns
+```php
+// Article containers
+'.article', '.news-item', '.story', '.post', '.entry'
+'.FeedCard', '.NewsCard', '.ContentCard'
+
+// Headlines
+'h1', 'h2', '.headline', '.title', '.news-title'
+'.CardHeadline h1', '.story-headline'
+
+// Timestamps
+'.date', '.timestamp', '.published', '.time'
+'.Timestamp', '[data-source]', 'time[datetime]'
+
+// Authors
+'.author', '.byline', '.attribution', '.writer'
+'.Component-bylines', '.story-byline'
+
+// Content
+'.article-body', '.content', '.story-content'
+'.Article', '.post-content', '.entry-content'
+```
+
+### CSS Selector Best Practices
+```php
+// Use multiple selectors as fallbacks
+$title = $element->find('.headline, .title, h1, h2', 0)->plaintext;
+
+// Handle missing elements gracefully
+$author = $element->find('.author', 0);
+$item['author'] = $author ? $author->plaintext : 'Unknown';
+
+// Clean extracted text
+$item['title'] = trim(strip_tags($headline->plaintext));
+```
+
+## Caching Strategy - PERFORMANCE CRITICAL
+
+### Cache Levels
+```php
+// Page-level caching (300 seconds = 5 minutes)
+$html = getSimpleHTMLDOMCached($this->getURI(), 300);
+
+// Article-level caching (for full content)
+$articleHtml = getSimpleHTMLDOMCached($item['uri'], 300);
+
+// Global cache timeout (in class constants)
+const CACHE_TIMEOUT = 3600;  // 1 hour
+```
+
+### Cache Considerations
+- **Short cache for listing pages** (300s) - catch new articles quickly
+- **Longer cache for individual articles** (same 300s) - articles don't change
+- **Respect source website** - don't overwhelm with requests
+- **Balance freshness vs. performance** - adjust based on publication frequency
+
+## Bridge Testing & Debugging
+
+### Testing New Bridges
+```bash
+# Test bridge functionality
+curl "http://localhost:3939/?action=display&bridge=YourSource&format=Atom"
+
+# Test with different formats
+curl "http://localhost:3939/?action=display&bridge=YourSource&format=Json"
+curl "http://localhost:3939/?action=display&bridge=YourSource&format=Html"
+
+# Test bridge listing
+curl "http://localhost:3939"
+```
+
+### Debug Common Issues
+```php
+// Add debug output (remove before production)
+error_log("Found " . count($stories) . " stories");
+error_log("First story title: " . $stories[0]->find('h1', 0)->plaintext);
+
+// Check for empty results
+if(empty($this->items)) {
+    error_log("No items collected - check CSS selectors");
+}
+```
+
+## Integration with Main Application
+
+### Adding Bridge to System
+```bash
+# 1. Create bridge file in rss-bridge/bridges/
+# 2. Test bridge via RSS-Bridge interface
+# 3. Add to main application monitoring:
+curl "http://localhost:4912/add-url?url=http://localhost:3939/?action=display&bridge=YourSource&format=Atom"
+```
+
+### RSS Feed URL Pattern
+```
+http://localhost:3939/?action=display&bridge=BridgeName&format=Atom
+
+Examples:
+- AP Politics: http://localhost:3939/?action=display&bridge=APNewsPolitics&format=Atom
+- Reuters: http://localhost:3939/?action=display&bridge=Reuters&format=Atom
+```
+
+## Whitelist Configuration
+
+### whitelist.txt Pattern
+```
+# Current setting allows all bridges
+*
+
+# Specific bridges only (if needed for security)
+APNewsPolitics
+APNewsTopNews
+Reuters
+YourNewBridge
+```
+
+## Error Handling & Robustness
+
+### Graceful Degradation
+```php
+public function collectData() {
+    try {
+        $html = getSimpleHTMLDOMCached($this->getURI(), 300);
+        
+        if(!$html) {
+            throw new Exception("Could not fetch content from " . $this->getURI());
+        }
+        
+        $stories = $html->find('.article-selector');
+        
+        if(empty($stories)) {
+            throw new Exception("No articles found - check CSS selector");
+        }
+        
+        foreach ($stories as $element) {
+            // Safe element access
+            $titleElement = $element->find('.headline', 0);
+            if($titleElement) {
+                $item['title'] = trim($titleElement->plaintext);
+            } else {
+                continue; // Skip items without title
+            }
+            
+            // ... other extractions with similar safety checks
+            $this->items[] = $item;
+        }
+        
+    } catch (Exception $e) {
+        error_log("Bridge error: " . $e->getMessage());
+        // Return empty results gracefully
+    }
+}
+```
+
+### Content Validation
+```php
+// Validate required fields before adding item
+if(!empty($item['uri']) && !empty($item['title'])) {
+    $this->items[] = $item;
+} else {
+    error_log("Skipping item - missing required fields");
+}
+```
+
+## Performance Optimization
+
+### Efficient Scraping
+```php
+// Limit number of articles
+if($i >= 15) break;
+
+// Skip duplicate URLs (if checking external source)
+static $seen_urls = array();
+if(in_array($item['uri'], $seen_urls)) continue;
+$seen_urls[] = $item['uri'];
+
+// Process only recent articles (if timestamps available)
+$article_date = strtotime($item['timestamp']);
+if($article_date < strtotime('-7 days')) continue;
+```
+
+## Content Processing Pipeline
+
+### Data Flow
+```
+Source Website → Bridge Scraping → RSS Feed Generation → Main App → Content Analysis
+```
+
+### Bridge Output → Main Application
+```php
+// Bridge generates RSS with these fields:
+$item['uri']        → Used as unique identifier in database
+$item['title']      → Stored as article title
+$item['timestamp']  → Stored as publication date
+$item['author']     → Stored as author information
+$item['content']    → Sent to readability service for analysis
+```
+
+## Creating New Bridges - Step by Step
+
+### 1. Analysis Phase
+- **Inspect target website** using browser developer tools
+- **Identify article containers** and consistent CSS patterns
+- **Check for RSS alternatives** before building bridge
+- **Verify content structure** is consistent across articles
+
+### 2. Development Phase
+```php
+// Start with basic template
+// Test CSS selectors in browser console
+// Implement step by step (containers → titles → content)
+// Add error handling and validation
+```
+
+### 3. Testing Phase
+```bash
+# Test bridge functionality
+# Verify RSS output format
+# Check integration with main application
+# Monitor for errors in RSS-Bridge logs
+```
+
+### 4. Integration Phase
+```bash
+# Add to whitelist if needed
+# Add RSS URL to main application
+# Monitor article collection in database
+# Verify readability analysis is working
+```
+
+## CRITICAL DEVELOPMENT RULES
+1. **Always use caching** - `getSimpleHTMLDOMCached()` not `getSimpleHTMLDOM()`
+2. **Limit article count** - Don't overload source websites
+3. **Handle missing elements** - Use safe element access patterns
+4. **Validate extracted data** - Check for required fields before adding items
+5. **Test thoroughly** - Verify RSS output before integration
+6. **Respect source websites** - Don't make excessive requests
+7. **Monitor performance** - Watch for slow or failing bridges

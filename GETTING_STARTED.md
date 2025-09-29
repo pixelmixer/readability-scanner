@@ -15,6 +15,7 @@ All components are now **successfully documented** and **running**!
 - [RSS-Bridge](docs/RSSBridge.md) - RSS feed generation
 - [Hug Component](docs/HugComponent.md) - Python API features
 - [Docker Setup](docs/DockerSetup.md) - Container configuration
+- [Cursor Rules](docs/CursorRules.md) - AI agent guidance system
 - [Quick Reference](docs/README.md) - Fast access guide
 
 ## 🚀 Next Steps
@@ -75,11 +76,21 @@ docker-compose up --watch
 - **Custom RSS feeds** for sites without native feeds
 - **Data export** in CSV/JSON formats
 
+## 🤖 AI Development Ready
+The system includes a comprehensive **AI agent guidance system** with Cursor rules:
+- **Automatic expertise**: AI agents get context-aware guidance based on file patterns
+- **Expert-level contributions**: Built-in knowledge of all system components
+- **Safety-first development**: Critical guidelines prevent data loss and errors
+- **Multi-stack support**: Node.js, Python, PHP, and Docker patterns
+
+See [Cursor Rules Documentation](docs/CursorRules.md) for details.
+
 ## 🎯 Ready for Production Use
 The system is now fully operational and ready for:
 - Monitoring news readability trends
 - Research data collection
 - Machine learning model training
 - Publication quality analysis
+- AI-assisted development and maintenance
 
 All services are configured with proper restart policies and persistent data storage.

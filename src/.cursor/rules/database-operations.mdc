@@ -1,0 +1,217 @@
+---
+description: MongoDB operations, schema patterns, and aggregation pipelines for news articles and RSS feeds
+globs: ["**/*database*", "**/*mongo*", "**/*db*", "src/dbOperations.js"]
+alwaysApply: false
+---
+
+# Database Operations Rules
+
+## Collections Schema
+
+### documents (Articles) - CRITICAL STRUCTURE
+```javascript
+{
+  url: "https://...",              // UNIQUE identifier - used for upserts
+  title: "Article Title",
+  content: "original HTML content", 
+  "Cleaned Data": "processed text for analysis",
+  "Host": "domain.com",            // News source domain
+  "publication date": Date,        // Article publication timestamp
+  "origin": "RSS feed URL",        // Which RSS feed this came from
+  
+  // Text statistics (calculated by countable.count)
+  words: 500, sentences: 25, paragraphs: 8, characters: 2500, syllables: 750,
+  
+  // 8 Readability metrics (CORE DATA)
+  "Flesch": 65.2,                // Flesch Reading Ease (0-100)
+  "Flesch Kincaid": 8.5,         // Grade level
+  "Smog": 9.1,                   // Simple Measure of Gobbledygook
+  "Dale Chall": 7.8,             // Dale-Chall Readability
+  "Coleman Liau": 12.3,          // Coleman-Liau Index
+  "Gunning Fog": 10.2,           // Gunning Fog Index
+  "Spache": 6.5,                 // Spache Readability
+  "Automated Readability": 9.8,   // Automated Readability Index
+  
+  date: Date                      // Processing timestamp
+}
+```
+
+### urls (RSS Feeds) - MANAGEMENT COLLECTION
+```javascript
+{
+  url: "https://rss-feed-url",     // RSS endpoint URL
+  name: "Display Name",           // Human-readable source name
+  reliability: "high|medium|low",  // For ML classification
+  bias: "left|center|right"       // Political bias classification
+}
+```
+
+## CRITICAL DATABASE PATTERNS
+
+### ALWAYS Use Upsert (Prevent Duplicates)
+```javascript
+// MANDATORY pattern for article storage
+collection.replaceOne(
+    { url: article.url },    // Filter by unique URL
+    articleData,             // Complete document
+    { upsert: true }         // Insert if not exists, update if exists
+);
+
+// NEVER use insertOne for articles - will create duplicates
+```
+
+### Connection Pattern - REQUIRED
+```javascript
+// Node.js connection - ALWAYS use promise
+const client = new MongoClient('mongodb://readability-database:27017')
+const connection = client.connect()
+
+// EVERY database operation MUST use this pattern:
+connection.then(() => {
+    const db = client.db('readability-database');
+    const collection = db.collection('documents');
+    // ... database operations
+}).catch(err => {
+    console.error('Database connection error:', err);
+});
+```
+
+### Date Range Filtering Pattern
+```javascript
+// Standard date filtering for analytics
+{
+    "publication date": {
+        "$gte": startDate,      // Greater than or equal
+        "$lte": endDate         // Less than or equal
+    },
+    "origin": { "$ne": null }   // Only articles with RSS source
+}
+```
+
+## Aggregation Pipeline Patterns
+
+### Performance-Optimized Pipeline Structure
+```javascript
+const pipeline = [
+    // 1. FILTER FIRST (most important for performance)
+    { $match: { 
+        "publication date": { $gte: startDate, $lte: endDate },
+        "origin": { $ne: null }
+    }},
+    
+    // 2. GROUP for calculations
+    { $group: { 
+        _id: "$Host",
+        "avgFlesch": { $avg: "$Flesch" },
+        "avgSmog": { $avg: "$Smog" },
+        "articles": { $sum: 1 }
+    }},
+    
+    // 3. JOIN with urls collection for metadata
+    { $lookup: {
+        from: 'urls',
+        localField: 'origin',
+        foreignField: 'url', 
+        as: 'hostInfo'
+    }},
+    
+    // 4. SORT last
+    { $sort: { "avgFlesch": -1 } }
+];
+```
+
+### Common Aggregation Operations
+```javascript
+// Readability averages by news source
+{ $group: {
+    _id: "$Host",
+    avgReadability: { $avg: "$Flesch" },
+    totalArticles: { $sum: 1 },
+    latestArticle: { $max: "$publication date" }
+}}
+
+// Date-based grouping
+{ $group: {
+    _id: { 
+        year: { $year: "$publication date" },
+        month: { $month: "$publication date" }
+    },
+    monthlyAverage: { $avg: "$Flesch" }
+}}
+```
+
+## Performance & Indexing Rules
+
+### Required Indexes (for production)
+```javascript
+// Create these indexes for optimal performance:
+db.documents.createIndex({ "url": 1 })                    // Unique article lookup
+db.documents.createIndex({ "Host": 1 })                   // Source analysis
+db.documents.createIndex({ "publication date": -1 })      // Date range queries
+db.documents.createIndex({ "origin": 1 })                 // RSS feed lookup
+db.urls.createIndex({ "url": 1 })                        // RSS feed management
+```
+
+### Performance Best Practices
+1. **Use $match early** in aggregation pipelines to filter data
+2. **Use projection** to limit returned fields: `.find({}, { url: 1, Host: 1, Flesch: 1 })`
+3. **Consider allowDiskUse: true** for large aggregations
+4. **Limit results** when testing: `.limit(100)` for development queries
+
+## Python Integration Patterns
+```python
+# Python connection (hug/hug.py)
+client = MongoClient('mongodb://readability-database:27017/...')
+db = client["readability-database"]
+collection = db["documents"]
+
+# Convert to pandas for analysis
+result = collection.aggregate(pipeline)
+df = pd.DataFrame.from_records(result)
+```
+
+## Common Query Examples
+
+### Recent Articles
+```javascript
+db.documents.find()
+    .sort({"publication date": -1})
+    .limit(10)
+```
+
+### Source Analysis
+```javascript
+db.documents.aggregate([
+    { $group: {
+        _id: "$Host",
+        articles: { $sum: 1 },
+        avgReadability: { $avg: "$Flesch" }
+    }},
+    { $sort: { articles: -1 } }
+])
+```
+
+### Data Quality Check
+```javascript
+// Check for missing readability scores
+db.documents.find({ "Flesch": { $exists: false } }).count()
+
+// Verify unique URLs
+db.documents.aggregate([
+    { $group: { _id: "$url", count: { $sum: 1 } } },
+    { $match: { count: { $gt: 1 } } }
+])
+```
+
+## Data Volume Management
+- **Persistent storage**: `E:\NewsDatabase` (NEVER DELETE THIS VOLUME)
+- **Backup strategy**: Use `mongodump` for regular backups
+- **Cleanup considerations**: Implement date-based retention if needed
+- **Current size monitoring**: Check disk usage regularly
+
+## CRITICAL WARNINGS
+1. **NEVER delete the database volume** at `E:\NewsDatabase`
+2. **ALWAYS use upsert** for article insertion to prevent duplicates
+3. **Test aggregations on small datasets** before running on full collection
+4. **Use connection.then()** for all Node.js database operations
+5. **Validate date formats** before storing publication dates

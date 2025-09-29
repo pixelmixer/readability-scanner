@@ -1,0 +1,293 @@
+---
+description: Python/Hug API development for ML datasets, data export, and advanced analytics
+globs: ["hug/**/*.py", "hug/**/requirements.txt", "hug/**/Dockerfile"]
+alwaysApply: false
+---
+
+# Python Development Rules (Hug API)
+
+## Hug Framework Patterns
+
+### Endpoint Declaration Pattern
+```python
+@hug.get('/endpoint')
+def function_name(param1, param2: hug.types.number = default):
+    """Clear docstring explaining endpoint purpose"""
+    return response_data
+
+# File downloads
+@hug.get('/download', output=hug.output_format.file)
+def download_file():
+    return './path/to/file'
+
+# HTML output for reports
+@hug.get('/report', output=hug.output_format.html)
+def generate_report():
+    return df.describe().to_html()
+```
+
+### MongoDB Integration - SHARED DATABASE
+```python
+# Connection to shared database with Node.js app
+client = MongoClient('mongodb://readability-database:27017/?readPreference=primary&appname=MongoDB%20Compass%20Community&ssl=false')
+db = client["readability-database"]
+collection = db["documents"]
+
+# Aggregation pipeline pattern
+result = collection.aggregate([
+    # Same pipeline patterns as Node.js
+    {'$match': {'origin': {'$ne': None}}},
+    {'$lookup': {
+        'from': 'urls',
+        'localField': 'origin',
+        'foreignField': 'url',
+        'as': 'host'
+    }}
+])
+
+# Convert to pandas for analysis
+df = pd.DataFrame.from_records(result)
+```
+
+## ML Dataset Generation - KEY FUNCTIONALITY
+
+### File Structure Pattern
+```python
+# Standard structure: data/{train|test}/{classification}/article_id.txt
+# Classifications: reliability scores (high/medium/low)
+
+def generate_ml_datasets():
+    for i, doc in enumerate(document_list):
+        classification = doc['reliability']  # From urls collection
+        content = doc['Cleaned Data']        # Processed article text
+        
+        # Train dataset
+        train_path = f"data/train/{classification}/"
+        if not os.path.exists(train_path):
+            os.makedirs(train_path)
+        
+        train_file_path = f"{train_path}{i}.txt"
+        
+        # ALWAYS check file existence to prevent duplicates
+        if not os.path.isfile(train_file_path):
+            with open(train_file_path, "wt") as train_file:
+                bytes_written = train_file.write(content)
+                print(f"Wrote {bytes_written} bytes to {train_file_path}")
+```
+
+### Performance Tracking Pattern
+```python
+import time
+
+def timed_operation():
+    tic = time.perf_counter()
+    
+    # ... operations
+    
+    toc = time.perf_counter()
+    return f"Completed in {toc - tic:0.4f} seconds"
+```
+
+## Data Export & Archive Generation
+
+### Archive Creation Pattern
+```python
+import tarfile
+
+def make_tarfile(output_filename, source_dir):
+    """Create compressed archive of data directory"""
+    with tarfile.open(output_filename, "w:gz") as tar:
+        tar.add(source_dir, arcname=os.path.basename(source_dir))
+        return tar
+
+# Usage
+@hug.get('/create_zip', output=hug.output_format.file)
+def create_zip():
+    tar = make_tarfile('data.tar.gz', './data/')
+    return './data.tar.gz'
+```
+
+### Pandas Integration for Analytics
+```python
+import pandas as pd
+
+# MongoDB result to DataFrame
+result = collection.aggregate(pipeline)
+df = pd.DataFrame.from_records(result)
+
+# Statistical analysis
+print(df.describe())
+return df.describe().to_html()
+
+# Data filtering and grouping
+filtered_df = df[df['reliability'] == 'high']
+grouped = df.groupby('Host')['Flesch'].mean()
+```
+
+## Key Endpoints & Their Purposes
+
+### `/generate_files` - ML Dataset Creation
+```python
+@hug.get('/generate_files', output=hug.output_format.html)
+def generate_files():
+    """Creates training and test datasets organized by reliability classification"""
+    # 1. Query documents with reliability metadata
+    # 2. Create train/test directory structure
+    # 3. Write individual text files
+    # 4. Return performance statistics
+```
+
+### `/export` - Date-Filtered Data Export
+```python
+@hug.get('/export')
+def export():
+    """Export articles from specific date range with metadata"""
+    result = collection.aggregate([
+        {'$match': {
+            'publication date': {
+                '$gte': datetime(2021, 3, 29, 4, 0, 0, tzinfo=timezone.utc),
+                '$lte': datetime(2021, 4, 5, 3, 59, 59, tzinfo=timezone.utc)
+            },
+            'origin': {'$ne': None}
+        }},
+        {'$project': {'url': '$url', 'Host': '$Host'}}
+    ])
+```
+
+### `/wordcloud` - Text Analysis
+```python
+@hug.get('/wordcloud')
+def word_cloud():
+    """Aggregated word frequency analysis across all articles"""
+    result = collection.aggregate([
+        {'$project': {'words': {'$split': ['$Cleaned Data', ' ']}}},
+        {'$unwind': {'path': '$words'}},
+        {'$group': {'_id': '$words', 'count': {'$sum': 1}}},
+        {'$sort': {'count': -1}},
+        {'$match': {'count': {'$gt': 1}}},
+        {'$limit': 5}
+    ])
+```
+
+## External API Integration
+
+### Text Summarization Pattern
+```python
+@hug.post('/summarize')
+def summarize(prompt, history={'internal': [], 'visible': []}):
+    """AI-powered text summarization using external service"""
+    request = {
+        'prompt': f'{prompt}',
+        'max_new_tokens': 250,
+        'temperature': 0.7,
+        'top_p': 0.1,
+        # ... other parameters
+    }
+    
+    response = requests.post(URI, json=request)
+    
+    if response.status_code == 200:
+        return response.json()
+    return prompt
+```
+
+## Environment & Dependencies
+
+### Requirements.txt Pattern
+```python
+# Core dependencies
+hug                 # API framework
+pymongo            # MongoDB driver
+pandas             # Data analysis
+sklearn            # Machine learning
+numpy<2.0          # Numerical computing (version locked)
+requests           # HTTP client
+```
+
+### Environment Variables
+```python
+# Set in Dockerfile for compatibility
+ENV SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
+```
+
+## Development Best Practices
+
+### Error Handling
+```python
+try:
+    result = collection.aggregate(pipeline)
+    df = pd.DataFrame.from_records(result)
+    return df.to_dict()
+except Exception as e:
+    print(f"Database operation failed: {e}")
+    return {"error": str(e)}
+```
+
+### File Operations Safety
+```python
+# Always check file/directory existence
+if not os.path.exists(directory_path):
+    os.makedirs(directory_path)
+
+if not os.path.isfile(file_path):
+    # Safe to create new file
+    pass
+else:
+    # File exists, skip or handle appropriately
+    skipped_count += 1
+```
+
+### MongoDB Date Handling
+```python
+from datetime import datetime, timezone
+
+# Proper timezone-aware dates
+start_date = datetime(2021, 3, 29, 4, 0, 0, tzinfo=timezone.utc)
+end_date = datetime(2021, 4, 5, 3, 59, 59, tzinfo=timezone.utc)
+```
+
+## Integration with Node.js App
+
+### Shared Database Collections
+- **documents**: Read article data and readability metrics
+- **urls**: Read RSS feed metadata including reliability scores
+- **Data consistency**: Both apps use same document structure
+
+### Data Flow
+```
+Node.js App → Processes articles → Stores in MongoDB
+     ↓
+Python API → Reads processed data → Generates ML datasets → Creates archives
+```
+
+## Adding New Features
+
+### New API Endpoints
+```python
+@hug.get('/new-endpoint')
+def new_feature(param1, param2: hug.types.text = "default"):
+    """Clear description of endpoint purpose"""
+    # MongoDB operations
+    # Data processing with pandas
+    # Return appropriate format
+    return results
+```
+
+### Data Analysis Functions
+```python
+def analyze_readability_trends():
+    """Custom analysis function"""
+    # Use existing patterns:
+    # 1. MongoDB aggregation
+    # 2. Pandas DataFrame conversion
+    # 3. Statistical analysis
+    # 4. Return results
+```
+
+## Critical Development Rules
+1. **Use shared MongoDB connection** - same database as Node.js app
+2. **Check file existence** before creating to prevent overwrites
+3. **Use pandas for data analysis** - leverage existing patterns
+4. **Track performance** with timing for all operations
+5. **Validate data** before processing - check for required fields
+6. **Use proper error handling** for database and file operations

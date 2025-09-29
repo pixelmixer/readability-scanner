@@ -1,0 +1,44 @@
+---
+description: News Readability Analysis System - Core architecture and navigation guide
+globs: 
+alwaysApply: true
+---
+
+# News Readability Analysis System
+
+## System Overview
+This is a **multi-service news analysis system** with Docker Compose orchestration:
+
+```
+RSS Feeds → Content Extraction → Readability Analysis → MongoDB → Web Analytics
+```
+
+### Core Services
+- **Main App** (`src/`): Node.js/Express - RSS crawling, readability analysis, web dashboard
+- **Python API** (`hug/`): Hug framework - ML datasets, data export, advanced analytics  
+- **RSS-Bridge** (`rss-bridge/`): PHP - Custom RSS generation for sites without feeds
+- **MongoDB**: Database with persistent storage at `E:\NewsDatabase`
+
+### Critical Files
+- `src/index.js` - Main application logic (500+ lines)
+- `hug/hug.py` - Python API (300+ lines) 
+- `docker-compose.yml` - Service orchestration
+- `src/.env` - Configuration (INTERVAL cron schedule)
+
+### Database Collections
+- `documents` - Articles with readability metrics
+- `urls` - RSS feed URLs for monitoring
+
+## Architecture Rules
+1. **Never delete** database volume at `E:\NewsDatabase`
+2. **Use Docker services** for all development (no local installs)
+3. **Test single articles** before batch processing
+4. **Use upsert patterns** for article storage (prevent duplicates)
+5. **Check service logs** when debugging: `docker-compose logs -f [service]`
+
+## Quick Navigation
+- **Readability calculations**: Search `flesch`, `smog`, `gunning` in `src/index.js`
+- **Database operations**: Check `src/dbOperations.js` and aggregation pipelines
+- **API endpoints**: Bottom of `src/index.js` for routes
+- **RSS parsing**: Find `feedParser.parseURL` and `scanFeeds()` function
+- **ML features**: All in `hug/hug.py` with pandas/sklearn

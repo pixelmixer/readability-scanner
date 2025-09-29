@@ -1,0 +1,105 @@
+---
+description: Docker operations, service management, and container orchestration
+globs: ["**/docker-compose*.yml", "**/Dockerfile*", "**/docker/**"]
+alwaysApply: false
+---
+
+# Docker Operations Rules
+
+## Service Architecture
+```yaml
+proxy-scanner (main app) :4912
+  ↓ depends_on
+readability (content) :3000 (internal)
+readability-database (mongo) :27017
+rss-bridge (rss gen) :3939
+hug (python api) :3839
+```
+
+## Critical Volume Configuration
+```yaml
+# NEVER MODIFY - Database persistence
+readability-database:
+  volumes:
+    - "E:\\NewsDatabase:/data/db"  # Windows host path
+
+# Development hot reload
+proxy-scanner:
+  volumes:
+    - "./src:/usr/src/app"
+```
+
+## Common Commands
+
+### Development Workflow
+```bash
+# Start with hot reload
+docker-compose up --watch
+
+# Check service status
+docker-compose ps
+
+# View specific service logs
+docker-compose logs -f proxy-scanner
+
+# Restart after config changes
+docker-compose restart [service-name]
+```
+
+### Debugging
+```bash
+# Test service connectivity
+curl http://localhost:4912
+curl http://localhost:3839/happy_birthday?name=Test
+curl http://localhost:3939
+
+# Access database
+docker exec -it crawltest-readability-database-1 mongosh
+
+# Check container resources
+docker stats
+```
+
+## Service Communication Rules
+- **Internal network**: `readable` - services use hostnames
+- **Content extraction**: `http://readability:3000` (Node.js → PHP service)
+- **Database access**: `mongodb://readability-database:27017`
+- **External access**: Only via mapped ports
+
+## Development Patterns
+- **Code changes**: Auto-sync via volume mounts (no rebuilds needed)
+- **Dependency changes**: Requires rebuild: `docker-compose build [service]`  
+- **Config changes**: Restart required: `docker-compose restart`
+
+## Build Patterns
+
+### Node.js Service (Dockerfile)
+```dockerfile
+FROM node:14
+WORKDIR /usr/src/app
+ADD ./src/package.json /usr/src/app/package.json
+RUN npm install
+# Source code via volume mount
+```
+
+### Python Service (hug/Dockerfile)  
+```dockerfile
+FROM python:3.10.15-alpine3.20
+ADD . /src
+WORKDIR /src
+RUN apk add nodejs npm  # Mixed environment
+RUN pip install -r requirements.txt
+```
+
+## Troubleshooting Rules
+1. **Service won't start**: Check `docker-compose logs [service]`
+2. **Port conflicts**: Verify ports 4912, 3839, 3939, 27017 available
+3. **Volume issues**: Ensure `E:\NewsDatabase` exists and writable
+4. **Network issues**: Services communicate via `readable` network
+5. **Memory issues**: Check Docker Desktop resource allocation
+
+## Production Considerations
+- Add health checks for all services
+- Configure resource limits
+- Implement backup automation for database volume
+- Set up monitoring and alerting

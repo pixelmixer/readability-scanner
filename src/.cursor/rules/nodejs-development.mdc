@@ -1,0 +1,119 @@
+---
+description: Node.js/Express development patterns for main application (RSS crawling, readability analysis, web dashboard)
+globs: ["src/**/*.js", "src/**/*.json", "src/**/*.env"]
+alwaysApply: false
+---
+
+# Node.js Development Rules
+
+## Express Patterns
+
+### Route Organization
+```javascript
+// Routes defined at bottom of src/index.js
+app.route('/endpoint').get(handlerFunction);
+
+// Route handlers in src/routeHandlers.js (partial refactor)
+// Use this pattern for new routes
+```
+
+### Database Operations - CRITICAL PATTERN
+```javascript
+// ALWAYS use connection promise
+connection.then(() => {
+    const db = client.db('readability-database');
+    const collection = db.collection('documents');
+    
+    // UPSERT pattern (prevents duplicates)
+    collection.replaceOne({ url: article.url }, articleData, { upsert: true });
+});
+```
+
+## Readability Analysis Pipeline
+```javascript
+// Text processing sequence in parseAndSaveResponse():
+1. striptags(content, ['p'], ' ') // Remove HTML, keep paragraphs
+2. countable.count(cleanedContent) // Get word/sentence stats
+3. syllable(cleanedContent) // For readability formulas
+4. Apply 8 metrics: flesch, smog, daleChall, colemanLiau, gunningFog, spache, automatedReadability
+5. Store with unique URL key using upsert
+```
+
+## RSS Processing Workflow
+```javascript
+// Main functions to understand:
+startCron()                 // Sets up scheduled RSS crawling
+scanFeeds()                 // Processes all RSS URLs from database
+feedParser.parseURL(rssUrl) // Parses individual RSS feed
+parseAndSaveResponse()      // Processes article content + readability
+
+// Content extraction flow:
+fetch('http://readability:3000', { url: articleUrl }) → readability analysis → MongoDB storage
+```
+
+## Environment & Configuration
+```javascript
+// Environment variables (src/.env)
+INTERVAL=0 12 * * SUN-SAT  // Cron schedule for RSS crawling
+
+// Load environment
+dotenv.config()
+const INTERVAL = process.env.INTERVAL;
+```
+
+## Critical Development Rules
+1. **NEVER bypass connection.then()** before database operations
+2. **ALWAYS use upsert pattern** for article storage to prevent duplicates
+3. **Use moment() library** for all date handling and manipulation
+4. **Error handling**: Use .catch() with descriptive console logging
+5. **RSS feed validation**: Test feeds with feedParser before adding to database
+
+## Adding New Features
+
+### New API Endpoints
+```javascript
+// Add to bottom of src/index.js
+app.route('/new-endpoint').get(handlerFunction);
+
+// Example handler pattern:
+const newHandler = (req, res) => {
+    connection.then(() => {
+        const db = client.db('readability-database');
+        // ... database operations
+        res.json(results);
+    }).catch(err => {
+        console.error('Database error:', err);
+        res.status(500).send(err);
+    });
+};
+```
+
+### New Readability Metrics
+```javascript
+// Add to parseAndSaveResponse() function after existing metrics:
+json['NewMetric'] = newMetricLibrary({ 
+    sentence: sentences, 
+    word: words, 
+    syllable: syllables 
+});
+```
+
+### Database Aggregations
+```javascript
+// Follow pattern in filterDaily() function:
+const pipeline = [
+    { $match: { /* filters first */ } },
+    { $group: { /* group calculations */ } },
+    { $lookup: { /* join with urls collection */ } },
+    { $sort: { /* final sorting */ } }
+];
+```
+
+## Dependencies & Libraries
+- **express**: Web framework and routing
+- **mongodb**: Database driver - use with connection promise
+- **rss-parser**: RSS feed parsing
+- **node-cron**: Scheduled task execution
+- **moment**: Date manipulation and formatting
+- **readability metrics**: flesch, smog, dale-chall-formula, etc.
+- **text processing**: striptags, countable, syllable

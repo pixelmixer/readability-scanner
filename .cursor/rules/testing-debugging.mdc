@@ -1,0 +1,178 @@
+---
+description: Comprehensive testing, debugging, and troubleshooting procedures for all services
+globs: 
+alwaysApply: false
+---
+
+# Testing & Debugging Rules
+
+## Service Health Checks
+
+### Basic Connectivity Tests
+```bash
+# Test main application
+curl http://localhost:4912
+
+# Test Python API
+curl "http://localhost:3839/happy_birthday?name=Test"
+# Expected: "Happy 1 Birthday Test!"
+
+# Test RSS-Bridge
+curl http://localhost:3939
+
+# Test specific bridge
+curl "http://localhost:3939/?action=display&bridge=APNewsPolitics&format=Atom"
+```
+
+### Single Article Testing
+```bash
+# Test article processing pipeline
+curl "http://localhost:4912/?url=https://example-news-article.com"
+
+# Check processing results
+docker exec -it crawltest-readability-database-1 mongosh
+use readability-database
+db.documents.find().sort({date: -1}).limit(1).pretty()
+```
+
+## Database Testing Patterns
+
+### Connection Testing
+```javascript
+// Test MongoDB connection
+connection.then(() => {
+    console.log('Database connected successfully');
+    const db = client.db('readability-database');
+    
+    // Test basic operations
+    db.collection('documents').find().limit(1).toArray()
+        .then(result => console.log('Database query successful'))
+        .catch(err => console.error('Database query failed:', err));
+});
+```
+
+### Data Validation Queries
+```javascript
+// Check data integrity
+db.documents.aggregate([
+    { $match: { "Flesch": { $exists: true } } },
+    { $group: { 
+        _id: null,
+        totalArticles: { $sum: 1 },
+        avgFlesch: { $avg: "$Flesch" },
+        minDate: { $min: "$publication date" },
+        maxDate: { $max: "$publication date" }
+    }}
+]);
+
+// Check RSS sources
+db.urls.find().count()
+db.urls.find({}, {url: 1, name: 1})
+```
+
+## Debugging Strategies
+
+### Log Analysis
+```bash
+# Main application logs
+docker-compose logs -f proxy-scanner
+
+# Database operations
+docker-compose logs -f readability-database
+
+# Python API logs  
+docker-compose logs -f hug
+
+# RSS-Bridge logs
+docker-compose logs -f rss-bridge
+```
+
+### Performance Monitoring
+```bash
+# Container resource usage
+docker stats
+
+# Database performance
+docker exec -it crawltest-readability-database-1 mongosh
+use readability-database
+db.runCommand({serverStatus: 1})
+```
+
+## Common Debug Points
+
+### RSS Processing Issues
+```javascript
+// Add debug logging in scanFeeds()
+console.log(`Monitoring RSS feeds: ${urlList.length} sources`);
+console.log(`Processing article: ${json.url}`);
+console.log(`Readability scores calculated: Flesch=${json.Flesch}`);
+```
+
+### Content Extraction Issues
+```bash
+# Test readability service directly
+curl -X POST http://localhost:3000 \
+  -H "Content-Type: application/json" \
+  -d '{"url":"https://test-article.com"}'
+```
+
+### Python API Issues
+```python
+# Add timing and validation
+import time
+tic = time.perf_counter()
+# ... operations
+toc = time.perf_counter()
+print(f"Operation completed in {toc - tic:0.4f} seconds")
+
+# Validate data
+if not result:
+    print("No data returned from MongoDB")
+```
+
+## Error Patterns & Solutions
+
+### Service Won't Start
+```bash
+1. Check status: docker-compose ps
+2. Check logs: docker-compose logs [service-name]
+3. Try restart: docker-compose restart [service-name]
+4. Rebuild if needed: docker-compose build [service-name]
+```
+
+### Database Connection Issues
+```bash
+# Test MongoDB directly
+docker exec -it crawltest-readability-database-1 mongosh
+# If this fails, check volume permissions and Docker resources
+```
+
+### No Data Collection
+```bash
+1. Check RSS URLs: db.urls.find()
+2. Verify cron schedule: Check INTERVAL env var
+3. Test manual trigger: Call scanFeeds() directly
+4. Check readability service: curl http://localhost:3000
+```
+
+### Performance Issues
+- **Slow queries**: Add database indexes on frequently queried fields
+- **Memory issues**: Check Docker resource allocation
+- **Network timeouts**: Increase fetch timeout values
+- **Large datasets**: Consider pagination or data archiving
+
+## Testing Best Practices
+1. **Always test single articles** before batch processing
+2. **Validate RSS feeds** before adding to monitoring
+3. **Check database integrity** after schema changes
+4. **Monitor resource usage** during large operations
+5. **Use descriptive logging** for debugging complex issues
+
+## Manual Testing Workflows
+```bash
+# Complete pipeline test
+1. Add RSS feed: curl "http://localhost:4912/add-url?url=RSS_URL"
+2. Trigger scan: Wait for cron or manually trigger
+3. Check results: Query database for new articles
+4. Verify analytics: Visit http://localhost:4912/daily
+```
