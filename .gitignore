@@ -8,4 +8,4 @@ __pycache__
 .env.local
 .env.staging
 .env.production
-.log
+*.log
