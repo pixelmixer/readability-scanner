@@ -57,7 +57,13 @@ async function getOrigin(req, res) {
                     if (requestedJson) {
                         res.json(results)
                     } else {
-                        res.render('pages/origin', { results, dates: dates, title: `Readbility report for ${origin}` })
+                        res.render('pages/origin', {
+                            results,
+                            dates: dates,
+                            title: `Readbility report for ${origin}`,
+                            buildTimestamp: new Date().toISOString(),
+                            buildVersion: `v1.0.0-${Date.now()}`
+                        })
                     }
                 }
             });

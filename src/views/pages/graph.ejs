@@ -4,6 +4,12 @@
 <script src='https://cdn.plot.ly/plotly-latest.min.js'></script>
 
 <script>
+    // Build version logging
+    console.log('🚀 News Analysis System - Graph View');
+    console.log('📦 Build Version: <%= buildVersion %>');
+    console.log('🕒 Build Timestamp: <%= buildTimestamp %>');
+    console.log('🔄 Page Load Time:', new Date().toISOString());
+
     const myData2 = <%- JSON.stringify(results.data) %>
     const xData = <%- JSON.stringify(dateList.map((e, i)=>e)) %>
 

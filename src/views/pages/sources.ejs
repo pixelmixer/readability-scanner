@@ -309,6 +309,12 @@
 </div>
 
 <script>
+// Build version logging for cache verification
+console.log('🚀 News Analysis System - Frontend Loaded');
+console.log('📦 Build Version: <%= buildVersion %>');
+console.log('🕒 Build Timestamp: <%= buildTimestamp %>');
+console.log('🔄 Page Load Time:', new Date().toISOString());
+
 function editSource(id, name, url, description) {
     document.getElementById('editForm').action = '/sources/edit/' + id;
     document.getElementById('editName').value = name;

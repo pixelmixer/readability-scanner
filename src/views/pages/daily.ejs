@@ -93,6 +93,12 @@
 <!-- Latest compiled and minified JavaScript -->
 <script src="https://unpkg.com/bootstrap-table@1.18.2/dist/bootstrap-table.min.js"></script>
 <script>
+  // Build version logging
+  console.log('🚀 News Analysis System - Daily Report');
+  console.log('📦 Build Version: <%= buildVersion %>');
+  console.log('🕒 Build Timestamp: <%= buildTimestamp %>');
+  console.log('🔄 Page Load Time:', new Date().toISOString());
+
   $(document).ready(function($) {
     $('table').on('click', '.clickable-row', (e) => {
         window.location = $(e.currentTarget).data("href");

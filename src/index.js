@@ -59,6 +59,12 @@ const client = new MongoClient('mongodb://readability-database:27017', {
 })
 const connection = client.connect()
 
+// Build/startup timestamp for cache-busting verification
+const BUILD_TIMESTAMP = new Date().toISOString();
+const BUILD_VERSION = `v1.0.0-${Date.now()}`;
+
+console.log(`🚀 News Analysis System started at: ${BUILD_TIMESTAMP}`);
+console.log(`📦 Build Version: ${BUILD_VERSION}`);
 
 const INTERVAL = process.env.INTERVAL;
 
@@ -528,7 +534,9 @@ const getSources = async (req, res) => {
 
     res.render('pages/sources', {
       sources: sourcesWithCounts,
-      title: 'News Sources Management'
+      title: 'News Sources Management',
+      buildTimestamp: BUILD_TIMESTAMP,
+      buildVersion: BUILD_VERSION
     });
   } catch (error) {
     console.error('Error fetching sources:', error);
@@ -991,7 +999,14 @@ const getGraph = (req, res) => {
     if (requestedJson) {
       res.json({ days: duration, data: Object.values(idList) })
     } else {
-      res.render('pages/graph', { results: { days: duration, data: Object.values(idList) }, dateList: dateList, dates: dates, title: 'Daily News Readability Report' })
+      res.render('pages/graph', {
+        results: { days: duration, data: Object.values(idList) },
+        dateList: dateList,
+        dates: dates,
+        title: 'Daily News Readability Report',
+        buildTimestamp: BUILD_TIMESTAMP,
+        buildVersion: BUILD_VERSION
+      })
     }
   },
     (err) => {
@@ -1028,7 +1043,13 @@ const getDaily = (req, res) => {
     if (requestedJson) {
       res.json(results)
     } else {
-      res.render('pages/daily', { results, dates: dates, title: 'Daily News Readability Report' })
+      res.render('pages/daily', {
+        results,
+        dates: dates,
+        title: 'Daily News Readability Report',
+        buildTimestamp: BUILD_TIMESTAMP,
+        buildVersion: BUILD_VERSION
+      })
     }
   },
     (err) => {
