@@ -217,25 +217,6 @@
     </div>
 </div>
 
-<!-- Refresh Progress Modal -->
-<div class="modal fade" id="refreshModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Refreshing Source</h5>
-            </div>
-            <div class="modal-body">
-                <div class="text-center">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="sr-only">Loading...</span>
-                    </div>
-                    <p class="mt-3">Scanning <strong id="refreshSourceName"></strong> for new articles...</p>
-                    <small class="text-muted">This may take a few moments depending on the number of articles.</small>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -271,28 +252,49 @@ $(document).ready(function() {
     $('.refresh-btn').click(function() {
         const sourceId = $(this).data('source-id');
         const sourceName = $(this).data('source-name');
+        const $button = $(this);
 
-        $('#refreshSourceName').text(sourceName);
-        $('#refreshModal').modal('show');
+        // Disable the button and show loading state
+        $button.prop('disabled', true)
+               .html('<i class="fas fa-spinner fa-spin"></i> Refreshing...');
+
+        // Show persistent toast for this refresh
+        const refreshToastId = showPersistentToast(
+            `Refreshing ${sourceName}`,
+            'Scanning for new articles...',
+            'info'
+        );
 
         // Send refresh request
         $.post(`/sources/refresh/${sourceId}`)
             .done(function(response) {
-                $('#refreshModal').modal('hide');
+                // Hide the persistent toast
+                hidePersistentToast(refreshToastId);
+
                 if (response.success) {
                     showToast(
                         'Refresh Completed!',
-                        `Scanned: ${response.result.scanned}/${response.result.total} articles<br>Source: ${response.result.source}`,
+                        `<strong>${sourceName}</strong><br>Scanned: ${response.result.scanned}/${response.result.total} articles`,
                         'success'
                     );
-                    setTimeout(() => location.reload(), 1500); // Refresh the page after showing toast
+                    // Update the UI to show new data without full page reload
+                    setTimeout(() => {
+                        // Reload just the sources table data
+                        location.reload();
+                    }, 2000);
                 } else {
-                    showToast('Refresh Failed', response.error, 'error');
+                    showToast('Refresh Failed', `${sourceName}: ${response.error}`, 'error');
                 }
             })
             .fail(function(xhr) {
-                $('#refreshModal').modal('hide');
-                showToast('Refresh Failed', xhr.responseJSON?.detail || 'Unknown error', 'error');
+                // Hide the persistent toast
+                hidePersistentToast(refreshToastId);
+                showToast('Refresh Failed', `${sourceName}: ${xhr.responseJSON?.detail || 'Unknown error'}`, 'error');
+            })
+            .always(function() {
+                // Re-enable the button
+                $button.prop('disabled', false)
+                       .html('<i class="fas fa-sync"></i> Refresh');
             });
     });
 
