@@ -22,7 +22,7 @@ const util = require('util')
 const palette = require('google-palette')
 
 const toxicity = require('@tensorflow-models/toxicity');
-const { getOrigin,  } = require('./routeHandlers');
+const { getOrigin, } = require('./routeHandlers');
 
 
 
@@ -38,7 +38,10 @@ const countable = require('countable')
 const syllable = require('syllable')
 dotenv.config()
 
-const client = new MongoClient('mongodb://readability-database:27017')
+const client = new MongoClient('mongodb://readability-database:27017', {
+  useUnifiedTopology: true,
+  useNewUrlParser: true
+})
 const connection = client.connect()
 
 
@@ -59,6 +62,8 @@ app.set('layout', 'layouts/layout');
 
 
 app.use(expressLayouts)
+app.use(express.urlencoded({ extended: true }))
+app.use(express.json())
 
 
 app.listen(PORT, HOST);
@@ -104,61 +109,61 @@ const scanUrl = (req, res) => {
 
 const parseAndSaveResponse = (json) => {
   return new Promise((resolve, reject) => {
-    console.log(`${new Date()} Parsing ${json.url}`)
-    let cleanedContent = striptags(json.content, ['p'], ' ').replace(/\&nbsp;/g, '').replace(/<p[\s\S]*?>/g, '').replace(/<\/p>/g, '\r\n').trim()
+    try {
+      console.log(`${new Date()} Parsing ${json.url}`)
+      let cleanedContent = striptags(json.content, ['p'], ' ').replace(/\&nbsp;/g, '').replace(/<p[\s\S]*?>/g, '').replace(/<\/p>/g, '\r\n').trim()
 
-    countable.count(cleanedContent, ({ paragraphs: paragraphs, sentences: sentence, words: word, characters: character }) => {
-      const syllables = syllable(cleanedContent)
-      const words = cleanedContent.split(' ')
-      const wordSyllables = words.map(word => syllable(word))
-      const avgWordSyllables = wordSyllables.reduce((prev, next) => prev + next) / wordSyllables.length
-      const complexPolysillabicWord = wordSyllables.filter(count => count >= 3)
-      // const paragraphs = cleanedContent.split('\r\n').filter(n=>n.length)
+      countable.count(cleanedContent, ({ paragraphs: paragraphs, sentences: sentence, words: word, characters: character }) => {
+        try {
+          const syllables = syllable(cleanedContent)
+          const words = cleanedContent.split(' ')
+          const wordSyllables = words.map(word => syllable(word))
+          const avgWordSyllables = wordSyllables.reduce((prev, next) => prev + next) / wordSyllables.length
+          const complexPolysillabicWord = wordSyllables.filter(count => count >= 3)
 
+          json['paragraphs'] = paragraphs;
+          json['words'] = word;
+          json['sentences'] = sentence;
+          json['characters'] = character;
+          json['syllables'] = syllables;
+          json['word syllables'] = avgWordSyllables;
+          json['complex polysillabic words'] = complexPolysillabicWord.length
 
-      json['paragraphs'] = paragraphs;
-      json['words'] = word;
-      json['sentences'] = sentence;
-      json['characters'] = character;
-      json['syllables'] = syllables;
-      json['word syllables'] = avgWordSyllables;
-      json['complex polysillabic words'] = complexPolysillabicWord.length
+          json['Host'] = new URL(json.url).hostname
+          json['Cleaned Data'] = cleanedContent;
+          json['Smog'] = smog({ sentence, polysillabicWord: complexPolysillabicWord.length })
+          json['Flesch'] = flesch({ sentence, word, syllable: syllables })
+          json['Dale Chall'] = daleChall({ sentence, word })
+          json['Dale Chall: Grade'] = daleChall.gradeLevel(json['Dale Chall'])
+          json['Coleman Liau'] = colemanLiau({ sentence, word, letter: character })
+          json['Flesch Kincaid'] = fleschKincaid({ sentence, word, syllable: syllables })
+          json['Gunning Fog'] = gunningFog({ sentence, word, complexPolysillabicWord: complexPolysillabicWord.length })
+          json['Spache'] = spache({ word, sentence })
+          json['Automated Readability'] = automatedReadability({ sentence, word, character })
+          json['date'] = new Date()
 
-      json['Host'] = new URL(json.url).hostname
-      json['Cleaned Data'] = cleanedContent;
-      json['Smog'] = smog({ sentence, polysillabicWord: complexPolysillabicWord.length })
-      json['Flesch'] = flesch({ sentence, word, syllable: syllables })
-      json['Dale Chall'] = daleChall({ sentence, word })
-      json['Dale Chall: Grade'] = daleChall.gradeLevel(json['Dale Chall'])
-      json['Coleman Liau'] = colemanLiau({ sentence, word, letter: character })
-      json['Flesch Kincaid'] = fleschKincaid({ sentence, word, syllable: syllables })
-      json['Gunning Fog'] = gunningFog({ sentence, word, complexPolysillabicWord: complexPolysillabicWord.length })
-      json['Spache'] = spache({ word, sentence })
-      json['Automated Readability'] = automatedReadability({ sentence, word, character })
-      json['date'] = new Date()
-
-      // toxicity.load(0.9).then(model => {
-      //   model.classify(sentence).then(predictions => {
-      //     console.log(predictions)
-      //   })
-      // })
-
-      connection.then(() => {
-        const db = client.db(dbName);
-        const collection = db.collection('documents');
-        collection.replaceOne({ url: json.url }, json, { upsert: true })
-
-        // const paragraphCounts = paragraphs.map((paragraph)=>{
-        // 	const count = util.promisify(countable.count)
-        // 	return count(paragraph)
-        // })
-        // console.log(paragraphCounts)
-        // Promise.all(paragraphCounts).then((content)=>{
-        // 	console.log(JSON.stringify(content, null, '	'))
-        // })
-        resolve(cleanedContent)
-      })
-    })
+          connection.then(() => {
+            const db = client.db(dbName);
+            const collection = db.collection('documents');
+            collection.replaceOne({ url: json.url }, json, { upsert: true })
+              .then(() => resolve(cleanedContent))
+              .catch(err => {
+                console.error('Error saving to database:', err);
+                reject(err);
+              });
+          }).catch(err => {
+            console.error('Database connection error:', err);
+            reject(err);
+          });
+        } catch (analysisError) {
+          console.error('Error in readability analysis:', analysisError);
+          reject(analysisError);
+        }
+      });
+    } catch (error) {
+      console.error('Error in parseAndSaveResponse:', error);
+      reject(error);
+    }
   })
 }
 
@@ -172,46 +177,32 @@ const startCron = () => {
     })
   }
 
-  const scanFeeds = () => {
-    connection.then(() => {
+  const scanFeeds = async () => {
+    try {
+      await connection;
       const db = client.db(dbName);
       const urlCollection = db.collection('urls');
 
-      urlCollection.find({}).toArray((err, urls) => {
-        const urlList = urls.map(({ url }) => url)
-        console.log(`Monitoring ${urlList}`)
+      const urls = await urlCollection.find({}).toArray();
+      const urlList = urls.map(({ url }) => url);
+      console.log(`Monitoring ${urlList}`);
 
-        if (err) {
-          console.error(err);
-          return
+      if (urlList.length === 0) {
+        console.log('No URLs configured for monitoring');
+        return;
+      }
+
+      await Promise.all(urlList.map(async (url) => {
+        try {
+          const result = await scanSingleSource(url);
+          console.log(`Cron scan completed for ${url}: ${result.scanned}/${result.total} articles processed`);
+        } catch (error) {
+          console.error(`Error scanning ${url} during cron job:`, error.message);
         }
-
-        Promise.all(urlList.map(async (url) => {
-          const feedData = await feedParser.parseURL(url);
-
-          Promise.all(feedData.items.map(async (article) => {
-            const { title, link, pubDate } = article;
-            const body = { url: link };
-
-            fetch('http://readability:3000', {
-              method: 'post',
-              body: JSON.stringify(body),
-              headers: { 'Content-Type': 'application/json' },
-            })
-              .then(res => res.json())
-              .then(json => {
-                if (json.content) {
-                  json['publication date'] = new Date(pubDate)
-                  json['title'] = title
-                  json['origin'] = url
-
-                  parseAndSaveResponse(json)
-                }
-              })
-          }))
-        }));
-      })
-    })
+      }));
+    } catch (error) {
+      console.error('Error in scanFeeds:', error);
+    }
   }
 
   scanFeeds()
@@ -234,6 +225,231 @@ const addUrl = (req, res) => {
       resolve(content)
     })
   })
+}
+
+// Single Source Scanning Function
+const scanSingleSource = async (sourceUrl) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      console.log(`Starting immediate scan of: ${sourceUrl}`);
+
+      // Validate URL before attempting to parse
+      try {
+        new URL(sourceUrl);
+      } catch (urlError) {
+        console.error(`Invalid URL format: ${sourceUrl}`);
+        resolve({ scanned: 0, total: 0, source: sourceUrl, error: 'Invalid URL format' });
+        return;
+      }
+
+      const feedData = await feedParser.parseURL(sourceUrl);
+
+      if (!feedData.items || feedData.items.length === 0) {
+        console.log(`No articles found in feed: ${sourceUrl}`);
+        resolve({ scanned: 0, total: 0, source: sourceUrl });
+        return;
+      }
+
+      console.log(`Found ${feedData.items.length} articles in ${sourceUrl}`);
+
+      const scanPromises = feedData.items.map(async (article) => {
+        try {
+          const { title, link, pubDate } = article;
+
+          if (!link) {
+            console.warn(`Article missing link, skipping: ${title}`);
+            return false;
+          }
+
+          const body = { url: link };
+
+          const response = await fetch('http://readability:3000', {
+            method: 'post',
+            body: JSON.stringify(body),
+            headers: { 'Content-Type': 'application/json' },
+          });
+
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+
+          const json = await response.json();
+
+          if (json.content) {
+            json['publication date'] = new Date(pubDate);
+            json['title'] = title;
+            json['origin'] = sourceUrl;
+
+            await parseAndSaveResponse(json);
+            return true;
+          } else {
+            console.warn(`No content extracted for: ${link}`);
+            return false;
+          }
+        } catch (articleError) {
+          console.error(`Error processing article ${article.link || 'unknown'}:`, articleError.message);
+          return false;
+        }
+      });
+
+      const results = await Promise.all(scanPromises);
+      const successCount = results.filter(Boolean).length;
+
+      console.log(`Completed scan of ${sourceUrl}: ${successCount}/${feedData.items.length} articles processed`);
+      resolve({ scanned: successCount, total: feedData.items.length, source: sourceUrl });
+
+    } catch (error) {
+      console.error(`Error scanning source ${sourceUrl}:`, error.message);
+      // Don't reject, resolve with error info instead to prevent unhandled promise rejections
+      resolve({ scanned: 0, total: 0, source: sourceUrl, error: error.message });
+    }
+  });
+};
+
+// Source Management Functions
+const getSources = async (req, res) => {
+  try {
+    await connection;
+    const db = client.db(dbName);
+
+    // Get all sources
+    const urlCollection = db.collection('urls');
+    const sources = await urlCollection.find({}).toArray();
+
+    // Get article counts for each source
+    const documentCollection = db.collection('documents');
+    const sourcesWithCounts = await Promise.all(sources.map(async (source) => {
+      const count = await documentCollection.countDocuments({ origin: source.url });
+      const latestArticle = await documentCollection.findOne(
+        { origin: source.url },
+        { sort: { 'publication date': -1 } }
+      );
+
+      return {
+        ...source,
+        articleCount: count,
+        lastFetched: latestArticle ? latestArticle['publication date'] : null,
+        name: source.name || new URL(source.url).hostname
+      };
+    }));
+
+    res.render('pages/sources', {
+      sources: sourcesWithCounts,
+      title: 'News Sources Management'
+    });
+  } catch (error) {
+    console.error('Error fetching sources:', error);
+    res.status(500).send('Error fetching sources');
+  }
+}
+
+const addSource = async (req, res) => {
+  try {
+    const { url, name, description } = req.body;
+
+    if (!url) {
+      return res.status(400).send('URL is required');
+    }
+
+    // Validate URL format
+    try {
+      new URL(url);
+    } catch (urlError) {
+      return res.status(400).send('Invalid URL format');
+    }
+
+    await connection;
+    const db = client.db(dbName);
+    const collection = db.collection('urls');
+
+    const sourceData = {
+      url,
+      name: name || new URL(url).hostname,
+      description: description || '',
+      dateAdded: new Date()
+    };
+
+    await collection.replaceOne({ url }, sourceData, { upsert: true });
+
+    console.log(`Added source: ${url}`);
+
+    // Start immediate scan of the new source
+    scanSingleSource(url)
+      .then(result => {
+        console.log(`Immediate scan completed for new source: ${result.scanned}/${result.total} articles processed`);
+      })
+      .catch(error => {
+        console.error(`Immediate scan failed for new source ${url}:`, error);
+      });
+
+    res.redirect('/sources');
+  } catch (error) {
+    console.error('Error adding source:', error);
+    res.status(500).send('Error adding source');
+  }
+}
+
+const editSource = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { url, name, description } = req.body;
+
+    if (!url) {
+      return res.status(400).send('URL is required');
+    }
+
+    await connection;
+    const db = client.db(dbName);
+    const collection = db.collection('urls');
+
+    // Get the old source to check if URL changed
+    const oldSource = await collection.findOne({ _id: require('mongodb').ObjectId(id) });
+    const urlChanged = oldSource && oldSource.url !== url;
+
+    const updateData = {
+      url,
+      name: name || new URL(url).hostname,
+      description: description || '',
+      lastModified: new Date()
+    };
+
+    await collection.updateOne({ _id: require('mongodb').ObjectId(id) }, { $set: updateData });
+
+    console.log(`Updated source: ${id}`);
+
+    // Start immediate scan if URL was changed or force scan for any edit
+    scanSingleSource(url)
+      .then(result => {
+        const scanReason = urlChanged ? 'URL changed' : 'source updated';
+        console.log(`Immediate scan completed for edited source (${scanReason}): ${result.scanned}/${result.total} articles processed`);
+      })
+      .catch(error => {
+        console.error(`Immediate scan failed for edited source ${url}:`, error);
+      });
+
+    res.redirect('/sources');
+  } catch (error) {
+    console.error('Error editing source:', error);
+    res.status(500).send('Error editing source');
+  }
+}
+
+const deleteSource = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await connection;
+    const db = client.db(dbName);
+    const collection = db.collection('urls');
+
+    await collection.deleteOne({ _id: require('mongodb').ObjectId(id) });
+
+    console.log(`Deleted source: ${id}`);
+    res.redirect('/sources');
+  } catch (error) {
+    console.error('Error deleting source:', error);
+    res.status(500).send('Error deleting source');
+  }
 }
 
 const exportToCSV = (req, res) => {
@@ -546,12 +762,19 @@ const getDaily = (req, res) => {
   // }
 }
 
+// Source management routes
+app.route('/sources').get(getSources);
+app.route('/sources/add').post(addSource);
+app.route('/sources/edit/:id').post(editSource);
+app.route('/sources/delete/:id').post(deleteSource);
+
 app.route('/source/:origin').get(getOrigin);
 app.route('/daily').get(getDaily);
 app.route('/graph').get(getGraph);
 app.route('/export').get(exportToCSV)
 app.route('/add-url').get(addUrl);
-app.route('/').get(scanUrl);
+app.route('/scan').get(scanUrl);
+app.route('/').get((req, res) => res.redirect('/sources'));
 
 
 startCron()

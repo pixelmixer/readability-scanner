@@ -1,0 +1,277 @@
+<!-- Sources Management Page -->
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h2 mb-3">News Sources Management</h1>
+            <p class="text-muted">Manage RSS feed sources for news readability analysis</p>
+        </div>
+    </div>
+
+    <!-- Add New Source Form -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Add New Source</h5>
+                </div>
+                <div class="card-body">
+                    <form action="/sources/add" method="POST">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="url">RSS Feed URL *</label>
+                                    <input type="url" class="form-control" id="url" name="url" required
+                                           placeholder="https://example.com/rss">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="name">Source Name</label>
+                                    <input type="text" class="form-control" id="name" name="name"
+                                           placeholder="Optional - will auto-generate from URL">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="description">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="2"
+                                      placeholder="Optional description for this source"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-primary" id="addSourceBtn">
+                            <i class="fas fa-plus"></i> Add Source
+                        </button>
+                        <small class="form-text text-muted mt-2">
+                            <i class="fas fa-info-circle"></i> New sources will be scanned immediately for articles
+                        </small>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sources List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Current Sources (<%= sources.length %>)</h5>
+                    <div class="text-muted">
+                        Total Articles: <%= sources.reduce((sum, source) => sum + source.articleCount, 0) %>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <% if (sources.length === 0) { %>
+                        <div class="text-center p-4">
+                            <i class="fas fa-rss fa-3x text-muted mb-3"></i>
+                            <p class="text-muted">No sources configured yet. Add your first RSS feed above.</p>
+                        </div>
+                    <% } else { %>
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="thead-light">
+                                    <tr>
+                                        <th>Source</th>
+                                        <th>URL</th>
+                                        <th>Articles</th>
+                                        <th>Last Fetched</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <% sources.forEach((source, index) => { %>
+                                        <tr>
+                                            <td>
+                                                <strong><%= source.name %></strong>
+                                                <% if (source.description) { %>
+                                                    <br><small class="text-muted"><%= source.description %></small>
+                                                <% } %>
+                                            </td>
+                                            <td>
+                                                <a href="<%= source.url %>" target="_blank" class="text-break">
+                                                    <%= source.url.length > 50 ? source.url.substring(0, 50) + '...' : source.url %>
+                                                </a>
+                                            </td>
+                                            <td>
+                                                <% if (source.articleCount > 0) { %>
+                                                    <span class="badge badge-success"><%= source.articleCount %></span>
+                                                <% } else { %>
+                                                    <span class="badge badge-secondary">0</span>
+                                                <% } %>
+                                            </td>
+                                            <td>
+                                                <% if (source.lastFetched) { %>
+                                                    <small><%= new Date(source.lastFetched).toLocaleDateString() %></small>
+                                                <% } else { %>
+                                                    <small class="text-muted">Never</small>
+                                                <% } %>
+                                            </td>
+                                            <td>
+                                                <button class="btn btn-sm btn-outline-primary"
+                                                        onclick="editSource('<%= source._id %>', '<%= source.name %>', '<%= source.url %>', '<%= source.description || '' %>')">
+                                                    <i class="fas fa-edit"></i> Edit
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger ml-1"
+                                                        onclick="deleteSource('<%= source._id %>', '<%= source.name %>')">
+                                                    <i class="fas fa-trash"></i> Delete
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    <% }); %>
+                                </tbody>
+                            </table>
+                        </div>
+                    <% } %>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Source Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Edit Source</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <form id="editForm" method="POST">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label for="editUrl">RSS Feed URL *</label>
+                        <input type="url" class="form-control" id="editUrl" name="url" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editName">Source Name</label>
+                        <input type="text" class="form-control" id="editName" name="name">
+                    </div>
+                    <div class="form-group">
+                        <label for="editDescription">Description</label>
+                        <textarea class="form-control" id="editDescription" name="description" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary" id="saveChangesBtn">Save Changes</button>
+                    <small class="form-text text-muted mt-2 w-100">
+                        <i class="fas fa-sync"></i> Source will be re-scanned after saving changes
+                    </small>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Delete Source</h5>
+                <button type="button" class="close" data-dismiss="modal">
+                    <span>&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete the source <strong id="deleteSourceName"></strong>?</p>
+                <p class="text-warning"><small>This will only remove the source from monitoring. Existing articles will remain in the database.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Delete Source</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h6>Quick Navigation</h6>
+                <a href="/daily" class="btn btn-outline-primary btn-sm mr-2">Daily Report</a>
+                <a href="/graph" class="btn btn-outline-primary btn-sm mr-2">Graph View</a>
+                <a href="/export" class="btn btn-outline-primary btn-sm">Export Data</a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast notification for scanning feedback -->
+<div class="position-fixed" style="top: 80px; right: 20px; z-index: 1050;">
+    <div id="scanningToast" class="toast" role="alert" data-autohide="false">
+        <div class="toast-header">
+            <i class="fas fa-sync fa-spin text-primary mr-2"></i>
+            <strong class="mr-auto">Scanning in Progress</strong>
+            <button type="button" class="ml-2 mb-1 close" data-dismiss="toast">
+                <span>&times;</span>
+            </button>
+        </div>
+        <div class="toast-body">
+            Your source is being scanned for articles in the background. Check back in a few moments for updated article counts.
+        </div>
+    </div>
+</div>
+
+<script>
+function editSource(id, name, url, description) {
+    document.getElementById('editForm').action = '/sources/edit/' + id;
+    document.getElementById('editName').value = name;
+    document.getElementById('editUrl').value = url;
+    document.getElementById('editDescription').value = description;
+    $('#editModal').modal('show');
+}
+
+function deleteSource(id, name) {
+    document.getElementById('deleteSourceName').textContent = name;
+    document.getElementById('deleteForm').action = '/sources/delete/' + id;
+    $('#deleteModal').modal('show');
+}
+
+// Auto-generate name from URL if not provided
+document.getElementById('url').addEventListener('blur', function() {
+    const nameField = document.getElementById('name');
+    if (!nameField.value && this.value) {
+        try {
+            const url = new URL(this.value);
+            nameField.value = url.hostname;
+        } catch (e) {
+            // Invalid URL, ignore
+        }
+    }
+});
+
+// Show scanning notification after form submissions
+document.querySelector('form[action="/sources/add"]').addEventListener('submit', function() {
+    // Show toast after a small delay to let the redirect happen
+    setTimeout(() => {
+        $('#scanningToast').toast('show');
+    }, 100);
+});
+
+document.getElementById('editForm').addEventListener('submit', function() {
+    // Hide the edit modal first
+    $('#editModal').modal('hide');
+
+    // Show scanning toast
+    setTimeout(() => {
+        $('#scanningToast').toast('show');
+    }, 500);
+});
+
+// Check URL parameters to see if we should show the scanning toast
+window.addEventListener('load', function() {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('scanning') || document.referrer.includes('/sources/add') || document.referrer.includes('/sources/edit')) {
+        setTimeout(() => {
+            $('#scanningToast').toast('show');
+        }, 500);
+    }
+});
+</script>
