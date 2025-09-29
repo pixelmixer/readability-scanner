@@ -78,7 +78,7 @@
                                         <th>Source</th>
                                         <th>URL</th>
                                         <th>Articles</th>
-                                        <th>Last Fetched</th>
+                                        <th>Last Activity</th>
                                         <th>Actions</th>
                                     </tr>
                                 </thead>
@@ -104,19 +104,32 @@
                                                 <% } %>
                                             </td>
                                             <td>
+                                                <% if (source.lastRefreshed) { %>
+                                                    <small><strong>Manual:</strong> <%= new Date(source.lastRefreshed).toLocaleDateString() %></small><br>
+                                                <% } %>
                                                 <% if (source.lastFetched) { %>
-                                                    <small><%= new Date(source.lastFetched).toLocaleDateString() %></small>
-                                                <% } else { %>
-                                                    <small class="text-muted">Never</small>
+                                                    <small><strong>Auto:</strong> <%= new Date(source.lastFetched).toLocaleDateString() %></small>
+                                                <% } else if (!source.lastRefreshed) { %>
+                                                    <small class="text-muted">Never scanned</small>
                                                 <% } %>
                                             </td>
                                             <td>
-                                                <button class="btn btn-sm btn-outline-primary"
-                                                        onclick="editSource('<%= source._id %>', '<%= source.name %>', '<%= source.url %>', '<%= source.description || '' %>')">
+                                                <button class="btn btn-sm btn-outline-success refresh-btn"
+                                                        data-source-id="<%= source._id %>"
+                                                        data-source-name="<%= source.name %>"
+                                                        title="Scan this source for new articles">
+                                                    <i class="fas fa-sync"></i> Refresh
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-primary ml-1 edit-btn"
+                                                        data-source-id="<%= source._id %>"
+                                                        data-source-name="<%= source.name %>"
+                                                        data-source-url="<%= source.url %>"
+                                                        data-source-description="<%= source.description || '' %>">
                                                     <i class="fas fa-edit"></i> Edit
                                                 </button>
-                                                <button class="btn btn-sm btn-outline-danger ml-1"
-                                                        onclick="deleteSource('<%= source._id %>', '<%= source.name %>')">
+                                                <button class="btn btn-sm btn-outline-danger ml-1 delete-btn"
+                                                        data-source-id="<%= source._id %>"
+                                                        data-source-name="<%= source.name %>">
                                                     <i class="fas fa-trash"></i> Delete
                                                 </button>
                                             </td>
@@ -250,8 +263,9 @@
     </div>
 </div>
 
-<!-- Toast notification for scanning feedback -->
+<!-- Toast notifications -->
 <div class="position-fixed" style="top: 80px; right: 20px; z-index: 1050;">
+    <!-- Scanning toast -->
     <div id="scanningToast" class="toast" role="alert" data-autohide="false">
         <div class="toast-header">
             <i class="fas fa-sync fa-spin text-primary mr-2"></i>
@@ -262,6 +276,34 @@
         </div>
         <div class="toast-body">
             Your source is being scanned for articles in the background. Check back in a few moments for updated article counts.
+        </div>
+    </div>
+
+    <!-- Refresh toast -->
+    <div id="refreshToast" class="toast" role="alert" data-autohide="false">
+        <div class="toast-header">
+            <i class="fas fa-sync fa-spin text-success mr-2"></i>
+            <strong class="mr-auto" id="refreshToastTitle">Refreshing Source</strong>
+            <button type="button" class="ml-2 mb-1 close" data-dismiss="toast">
+                <span>&times;</span>
+            </button>
+        </div>
+        <div class="toast-body" id="refreshToastBody">
+            Manually scanning source for new articles...
+        </div>
+    </div>
+
+    <!-- Results toast -->
+    <div id="resultsToast" class="toast" role="alert" data-delay="5000">
+        <div class="toast-header">
+            <i class="fas fa-check-circle text-success mr-2" id="resultsToastIcon"></i>
+            <strong class="mr-auto" id="resultsToastTitle">Scan Complete</strong>
+            <button type="button" class="ml-2 mb-1 close" data-dismiss="toast">
+                <span>&times;</span>
+            </button>
+        </div>
+        <div class="toast-body" id="resultsToastBody">
+            Scan results will appear here.
         </div>
     </div>
 </div>
@@ -328,5 +370,112 @@ function useExampleFeed() {
     document.getElementById('name').value = 'Reuters Top News';
     document.getElementById('description').value = 'Reuters top news headlines';
     $('#feedExamplesModal').modal('hide');
+}
+
+// Event handlers for buttons using data attributes
+document.addEventListener('DOMContentLoaded', function() {
+    // Refresh button handlers
+    document.querySelectorAll('.refresh-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const sourceId = this.dataset.sourceId;
+            const sourceName = this.dataset.sourceName;
+            refreshSource(sourceId, sourceName);
+        });
+    });
+
+    // Edit button handlers
+    document.querySelectorAll('.edit-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const sourceId = this.dataset.sourceId;
+            const sourceName = this.dataset.sourceName;
+            const sourceUrl = this.dataset.sourceUrl;
+            const sourceDescription = this.dataset.sourceDescription;
+            editSource(sourceId, sourceName, sourceUrl, sourceDescription);
+        });
+    });
+
+    // Delete button handlers
+    document.querySelectorAll('.delete-btn').forEach(button => {
+        button.addEventListener('click', function() {
+            const sourceId = this.dataset.sourceId;
+            const sourceName = this.dataset.sourceName;
+            deleteSource(sourceId, sourceName);
+        });
+    });
+});
+
+// Refresh a specific source
+async function refreshSource(sourceId, sourceName) {
+    console.log(`Refreshing source: ${sourceName} (${sourceId})`);
+
+    // Update button state
+    const button = event.target.closest('button');
+    const originalContent = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-sync fa-spin"></i> Refreshing...';
+    button.disabled = true;
+
+    // Show refresh toast
+    document.getElementById('refreshToastTitle').textContent = `Refreshing ${sourceName}`;
+    document.getElementById('refreshToastBody').textContent = `Scanning ${sourceName} for new articles...`;
+    $('#refreshToast').toast('show');
+
+    try {
+        const response = await fetch(`/sources/refresh/${sourceId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const result = await response.json();
+
+        // Hide refresh toast
+        $('#refreshToast').toast('hide');
+
+        if (result.success) {
+            // Show success results
+            const successRate = Math.round((result.result.scanned / result.result.total) * 100);
+            const failureRate = 100 - successRate;
+
+            document.getElementById('resultsToastIcon').className = 'fas fa-check-circle text-success mr-2';
+            document.getElementById('resultsToastTitle').textContent = `✅ ${sourceName} Refreshed`;
+
+            let message = `📊 Processed ${result.result.scanned}/${result.result.total} articles (${successRate}% success)`;
+            if (result.result.failed > 0) {
+                message += `\n❌ ${result.result.failed} failed (${failureRate}% - see server logs for details)`;
+            }
+
+            document.getElementById('resultsToastBody').innerHTML = message.replace(/\n/g, '<br>');
+            $('#resultsToast').toast('show');
+
+            // Refresh the page after a short delay to show updated counts
+            setTimeout(() => {
+                window.location.reload();
+            }, 3000);
+
+        } else {
+            // Show error
+            document.getElementById('resultsToastIcon').className = 'fas fa-exclamation-triangle text-danger mr-2';
+            document.getElementById('resultsToastTitle').textContent = `❌ Refresh Failed`;
+            document.getElementById('resultsToastBody').textContent = `Failed to refresh ${sourceName}: ${result.error}`;
+            $('#resultsToast').toast('show');
+        }
+
+    } catch (error) {
+        console.error('Error refreshing source:', error);
+
+        // Hide refresh toast
+        $('#refreshToast').toast('hide');
+
+        // Show error toast
+        document.getElementById('resultsToastIcon').className = 'fas fa-exclamation-triangle text-danger mr-2';
+        document.getElementById('resultsToastTitle').textContent = `❌ Network Error`;
+        document.getElementById('resultsToastBody').textContent = `Failed to refresh ${sourceName}: ${error.message}`;
+        $('#resultsToast').toast('show');
+    } finally {
+        // Restore button state
+        button.innerHTML = originalContent;
+        button.disabled = false;
+    }
 }
 </script>

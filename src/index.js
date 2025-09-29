@@ -685,6 +685,59 @@ const deleteSource = async (req, res) => {
   }
 }
 
+const refreshSource = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    await connection;
+    const db = client.db(dbName);
+    const collection = db.collection('urls');
+
+    // Get the source by ID
+    const source = await collection.findOne({ _id: require('mongodb').ObjectId(id) });
+
+    if (!source) {
+      return res.status(404).json({ success: false, error: 'Source not found' });
+    }
+
+    console.log(`🔄 Manual refresh triggered for source: ${source.name} (${source.url})`);
+
+    // Start immediate scan and return results
+    try {
+      const result = await scanSingleSource(source.url);
+
+      // Update last refreshed timestamp
+      await collection.updateOne(
+        { _id: require('mongodb').ObjectId(id) },
+        { $set: { lastRefreshed: new Date() } }
+      );
+
+      console.log(`✅ Manual refresh completed for ${source.name}: ${result.scanned}/${result.total} articles processed`);
+
+      res.json({
+        success: true,
+        result: {
+          scanned: result.scanned,
+          total: result.total,
+          failed: result.failed || (result.total - result.scanned),
+          source: source.name,
+          url: source.url
+        }
+      });
+    } catch (scanError) {
+      console.error(`❌ Manual refresh failed for ${source.name}:`, scanError.message);
+      res.status(500).json({
+        success: false,
+        error: `Scan failed: ${scanError.message}`,
+        source: source.name
+      });
+    }
+  } catch (error) {
+    console.error('Error refreshing source:', error);
+    res.status(500).json({ success: false, error: 'Error refreshing source' });
+  }
+}
+
 const exportToCSV = (req, res) => {
   const type = req.query.type;
 
@@ -1000,6 +1053,7 @@ app.route('/sources').get(getSources);
 app.route('/sources/add').post(addSource);
 app.route('/sources/edit/:id').post(editSource);
 app.route('/sources/delete/:id').post(deleteSource);
+app.route('/sources/refresh/:id').post(refreshSource);
 
 app.route('/source/:origin').get(getOrigin);
 app.route('/daily').get(getDaily);
