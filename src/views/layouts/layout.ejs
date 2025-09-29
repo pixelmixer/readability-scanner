@@ -64,8 +64,8 @@
 
         <!-- Build version logging for all pages -->
         <script>
-        if (typeof buildVersion === 'undefined') {
-            // For pages that don't have build version in context
+        // Only log if we don't have specific page logging
+        if (typeof window.pageLogged === 'undefined') {
             console.log('🚀 News Analysis System - Page Loaded');
             console.log('🔄 Page Load Time:', new Date().toISOString());
         }

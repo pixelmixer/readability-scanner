@@ -263,53 +263,56 @@
     </div>
 </div>
 
-<!-- Toast notifications -->
-<div class="position-fixed" style="top: 80px; right: 20px; z-index: 1050;">
-    <!-- Scanning toast -->
-    <div id="scanningToast" class="toast" role="alert" data-autohide="false">
-        <div class="toast-header">
-            <i class="fas fa-sync fa-spin text-primary mr-2"></i>
-            <strong class="mr-auto">Scanning in Progress</strong>
-            <button type="button" class="ml-2 mb-1 close" data-dismiss="toast">
-                <span>&times;</span>
-            </button>
+<!-- Toast notifications container -->
+<div aria-live="polite" aria-atomic="true" style="position: relative; min-height: 200px;">
+    <div style="position: fixed; top: 80px; right: 20px; z-index: 1050; min-width: 350px;">
+        <!-- Scanning toast -->
+        <div id="scanningToast" class="toast hide" role="alert" aria-live="assertive" aria-atomic="true" data-autohide="false">
+            <div class="toast-header">
+                <i class="fas fa-sync fa-spin text-primary mr-2"></i>
+                <strong class="mr-auto">Scanning in Progress</strong>
+                <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="toast-body">
+                Your source is being scanned for articles in the background. Check back in a few moments for updated article counts.
+            </div>
         </div>
-        <div class="toast-body">
-            Your source is being scanned for articles in the background. Check back in a few moments for updated article counts.
-        </div>
-    </div>
 
-    <!-- Refresh toast -->
-    <div id="refreshToast" class="toast" role="alert" data-autohide="false">
-        <div class="toast-header">
-            <i class="fas fa-sync fa-spin text-success mr-2"></i>
-            <strong class="mr-auto" id="refreshToastTitle">Refreshing Source</strong>
-            <button type="button" class="ml-2 mb-1 close" data-dismiss="toast">
-                <span>&times;</span>
-            </button>
+        <!-- Refresh toast -->
+        <div id="refreshToast" class="toast hide" role="alert" aria-live="assertive" aria-atomic="true" data-autohide="false">
+            <div class="toast-header">
+                <i class="fas fa-sync fa-spin text-success mr-2"></i>
+                <strong class="mr-auto" id="refreshToastTitle">Refreshing Source</strong>
+                <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="toast-body" id="refreshToastBody">
+                Manually scanning source for new articles...
+            </div>
         </div>
-        <div class="toast-body" id="refreshToastBody">
-            Manually scanning source for new articles...
-        </div>
-    </div>
 
-    <!-- Results toast -->
-    <div id="resultsToast" class="toast" role="alert" data-delay="5000">
-        <div class="toast-header">
-            <i class="fas fa-check-circle text-success mr-2" id="resultsToastIcon"></i>
-            <strong class="mr-auto" id="resultsToastTitle">Scan Complete</strong>
-            <button type="button" class="ml-2 mb-1 close" data-dismiss="toast">
-                <span>&times;</span>
-            </button>
-        </div>
-        <div class="toast-body" id="resultsToastBody">
-            Scan results will appear here.
+        <!-- Results toast -->
+        <div id="resultsToast" class="toast hide" role="alert" aria-live="assertive" aria-atomic="true" data-delay="5000">
+            <div class="toast-header">
+                <i class="fas fa-check-circle text-success mr-2" id="resultsToastIcon"></i>
+                <strong class="mr-auto" id="resultsToastTitle">Scan Complete</strong>
+                <button type="button" class="ml-2 mb-1 close" data-dismiss="toast" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="toast-body" id="resultsToastBody">
+                Scan results will appear here.
+            </div>
         </div>
     </div>
 </div>
 
 <script>
 // Build version logging for cache verification
+window.pageLogged = true; // Prevent duplicate logging from layout
 console.log('🚀 News Analysis System - Frontend Loaded');
 console.log('📦 Build Version: <%= buildVersion %>');
 console.log('🕒 Build Timestamp: <%= buildTimestamp %>');
@@ -345,9 +348,9 @@ document.getElementById('url').addEventListener('blur', function() {
 // Show scanning notification after form submissions
 document.querySelector('form[action="/sources/add"]').addEventListener('submit', function() {
     // Show toast after a small delay to let the redirect happen
-    setTimeout(() => {
-        $('#scanningToast').toast('show');
-    }, 100);
+        setTimeout(() => {
+            $('#scanningToast').toast('show');
+        }, 100);
 });
 
 document.getElementById('editForm').addEventListener('submit', function() {
@@ -380,6 +383,19 @@ function useExampleFeed() {
 
 // Event handlers for buttons using data attributes
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Bootstrap toasts
+    console.log('🔧 Initializing Bootstrap toasts...');
+    console.log('🧪 jQuery version:', $.fn.jquery);
+    console.log('🧪 Bootstrap version:', typeof $.fn.modal !== 'undefined' ? 'Available' : 'Not Available');
+    console.log('🧪 Toast function available:', typeof $.fn.toast !== 'undefined' ? 'Yes' : 'No');
+
+    // Initialize toasts with Bootstrap 4.6.2+
+    $('.toast').toast({
+        autohide: false // Don't auto-hide by default
+    });
+    console.log('✅ Bootstrap toasts initialized successfully');
+    console.log('🧪 Toast elements found:', $('.toast').length);
+
     // Refresh button handlers
     document.querySelectorAll('.refresh-btn').forEach(button => {
         button.addEventListener('click', function() {
@@ -423,6 +439,8 @@ async function refreshSource(sourceId, sourceName) {
     // Show refresh toast
     document.getElementById('refreshToastTitle').textContent = `Refreshing ${sourceName}`;
     document.getElementById('refreshToastBody').textContent = `Scanning ${sourceName} for new articles...`;
+
+    // Show refresh toast
     $('#refreshToast').toast('show');
 
     try {
@@ -436,7 +454,11 @@ async function refreshSource(sourceId, sourceName) {
         const result = await response.json();
 
         // Hide refresh toast
-        $('#refreshToast').toast('hide');
+        if (typeof $.fn.toast !== 'undefined') {
+            $('#refreshToast').toast('hide');
+        } else {
+            window.hideToast('refreshToast');
+        }
 
         if (result.success) {
             // Show success results
@@ -452,6 +474,8 @@ async function refreshSource(sourceId, sourceName) {
             }
 
             document.getElementById('resultsToastBody').innerHTML = message.replace(/\n/g, '<br>');
+
+            // Show results toast
             $('#resultsToast').toast('show');
 
             // Refresh the page after a short delay to show updated counts
@@ -464,6 +488,8 @@ async function refreshSource(sourceId, sourceName) {
             document.getElementById('resultsToastIcon').className = 'fas fa-exclamation-triangle text-danger mr-2';
             document.getElementById('resultsToastTitle').textContent = `❌ Refresh Failed`;
             document.getElementById('resultsToastBody').textContent = `Failed to refresh ${sourceName}: ${result.error}`;
+
+            // Show error toast
             $('#resultsToast').toast('show');
         }
 
@@ -471,12 +497,17 @@ async function refreshSource(sourceId, sourceName) {
         console.error('Error refreshing source:', error);
 
         // Hide refresh toast
-        $('#refreshToast').toast('hide');
+        if (typeof $.fn.toast !== 'undefined') {
+            $('#refreshToast').toast('hide');
+        } else {
+            window.hideToast('refreshToast');
+        }
 
         // Show error toast
         document.getElementById('resultsToastIcon').className = 'fas fa-exclamation-triangle text-danger mr-2';
         document.getElementById('resultsToastTitle').textContent = `❌ Network Error`;
         document.getElementById('resultsToastBody').textContent = `Failed to refresh ${sourceName}: ${error.message}`;
+
         $('#resultsToast').toast('show');
     } finally {
         // Restore button state
