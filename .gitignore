@@ -1,2 +1,10 @@
 node_modules
 npm-debug.log
+__pycache__
+.env
+.env.production
+.env.development
+.env.test
+.env.local
+.env.staging
+.env.production
