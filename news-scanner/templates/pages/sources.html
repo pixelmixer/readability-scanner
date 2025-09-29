@@ -280,15 +280,19 @@ $(document).ready(function() {
             .done(function(response) {
                 $('#refreshModal').modal('hide');
                 if (response.success) {
-                    alert(`✅ Refresh completed!\n\nScanned: ${response.result.scanned}/${response.result.total} articles\nSource: ${response.result.source}`);
-                    location.reload(); // Refresh the page to show updated data
+                    showToast(
+                        'Refresh Completed!',
+                        `Scanned: ${response.result.scanned}/${response.result.total} articles<br>Source: ${response.result.source}`,
+                        'success'
+                    );
+                    setTimeout(() => location.reload(), 1500); // Refresh the page after showing toast
                 } else {
-                    alert(`❌ Refresh failed: ${response.error}`);
+                    showToast('Refresh Failed', response.error, 'error');
                 }
             })
             .fail(function(xhr) {
                 $('#refreshModal').modal('hide');
-                alert(`❌ Refresh failed: ${xhr.responseJSON?.detail || 'Unknown error'}`);
+                showToast('Refresh Failed', xhr.responseJSON?.detail || 'Unknown error', 'error');
             });
     });
 
