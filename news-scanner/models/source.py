@@ -3,8 +3,9 @@ RSS source data models.
 """
 
 from pydantic import BaseModel, Field, HttpUrl
-from typing import Optional
+from typing import Optional, Any
 from datetime import datetime
+from bson import ObjectId
 
 
 class SourceBase(BaseModel):
@@ -31,6 +32,7 @@ class SourceUpdate(BaseModel):
 class Source(SourceBase):
     """Complete RSS source model with metadata."""
 
+    id: Optional[str] = Field(None, alias="_id", description="MongoDB ObjectId")
     date_added: Optional[datetime] = Field(None, alias="dateAdded", description="When the source was added")
     last_modified: Optional[datetime] = Field(None, alias="lastModified", description="Last modification date")
     last_refreshed: Optional[datetime] = Field(None, alias="lastRefreshed", description="Last scan/refresh date")
@@ -38,6 +40,18 @@ class Source(SourceBase):
     # Computed fields (not stored in DB, calculated on-the-fly)
     article_count: Optional[int] = Field(None, description="Number of articles from this source")
     last_fetched: Optional[datetime] = Field(None, description="Date of most recent article")
+
+    @classmethod
+    def from_mongo(cls, doc: dict):
+        """Create Source instance from MongoDB document."""
+        if doc is None:
+            return None
+
+        # Convert ObjectId to string
+        if "_id" in doc and doc["_id"]:
+            doc["_id"] = str(doc["_id"])
+
+        return cls(**doc)
 
     class Config:
         populate_by_name = True

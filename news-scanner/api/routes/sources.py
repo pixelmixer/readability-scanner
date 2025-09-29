@@ -53,6 +53,30 @@ async def get_sources_api():
         raise HTTPException(status_code=500, detail="Error fetching sources")
 
 
+@router.post("/preview")
+async def preview_rss_feed(url: str = Form(...)):
+    """Preview an RSS feed to get title and basic info."""
+    try:
+        # Validate URL format
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if not parsed.scheme or not parsed.netloc:
+            raise HTTPException(status_code=400, detail="Invalid URL format")
+
+        # Use RSS parser to get feed info
+        from scanner.rss_parser import rss_parser
+        title = rss_parser.get_feed_title(url)
+
+        if title:
+            return {"success": True, "title": title, "url": url}
+        else:
+            return {"success": False, "error": "Could not fetch feed title"}
+
+    except Exception as e:
+        logger.error(f"Error previewing RSS feed {url}: {e}")
+        return {"success": False, "error": str(e)}
+
+
 @router.post("/add")
 async def add_source(
     request: Request,

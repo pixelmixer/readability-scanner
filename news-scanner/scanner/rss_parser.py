@@ -246,6 +246,45 @@ class RSSParser:
             self.logger.error(f"RSS feed validation failed for {feed_url}: {e}")
             return False
 
+    def get_feed_title(self, feed_url: str) -> Optional[str]:
+        """
+        Get the title of an RSS feed.
+
+        Args:
+            feed_url: URL of the RSS feed
+
+        Returns:
+            Feed title if successful, None otherwise
+        """
+        try:
+            self.logger.info(f"Fetching feed title from: {feed_url}")
+
+            # Fetch with appropriate headers and timeout
+            headers = {
+                'User-Agent': user_agent_rotator.get_random_user_agent(),
+                'Accept': 'application/rss+xml, application/atom+xml, application/xml, text/xml'
+            }
+
+            response = self.session.get(feed_url, headers=headers, timeout=30)
+            response.raise_for_status()
+
+            # Parse feed
+            feed_info = feedparser.parse(response.content)
+
+            if feed_info.bozo and hasattr(feed_info, 'bozo_exception'):
+                self.logger.warning(f"Feed parsing warning for {feed_url}: {feed_info.bozo_exception}")
+
+            # Extract title
+            title = getattr(feed_info.feed, 'title', None)
+            if title:
+                return title.strip()
+            else:
+                return None
+
+        except Exception as e:
+            self.logger.error(f"Error fetching feed title for {feed_url}: {e}")
+            return None
+
 
 # Global RSS parser instance
 rss_parser = RSSParser()

@@ -8,7 +8,7 @@ from typing import List, Optional, Dict, Any
 from urllib.parse import urlparse
 
 from motor.motor_asyncio import AsyncIOMotorCollection
-from pymongo import ASCENDING
+from pymongo import ASCENDING, DESCENDING
 from bson import ObjectId
 
 from models.source import Source, SourceCreate, SourceUpdate
@@ -81,7 +81,7 @@ class SourceRepository:
         """Get a source by its ObjectId."""
         try:
             doc = await self.collection.find_one({"_id": ObjectId(source_id)})
-            return Source(**doc) if doc else None
+            return Source.from_mongo(doc) if doc else None
         except Exception as e:
             logger.error(f"Error getting source by ID {source_id}: {e}")
             return None
@@ -90,7 +90,7 @@ class SourceRepository:
         """Get a source by its URL."""
         try:
             doc = await self.collection.find_one({"url": url})
-            return Source(**doc) if doc else None
+            return Source.from_mongo(doc) if doc else None
         except Exception as e:
             logger.error(f"Error getting source by URL {url}: {e}")
             return None
@@ -98,9 +98,9 @@ class SourceRepository:
     async def get_all_sources(self) -> List[Source]:
         """Get all RSS sources."""
         try:
-            cursor = self.collection.find({}).sort("name", ASCENDING)
+            cursor = self.collection.find({}).sort("_id", DESCENDING)
             docs = await cursor.to_list(length=None)
-            return [Source(**doc) for doc in docs]
+            return [Source.from_mongo(doc) for doc in docs]
         except Exception as e:
             logger.error(f"Error getting all sources: {e}")
             return []
@@ -130,7 +130,7 @@ class SourceRepository:
                 latest_article = await article_repository.get_latest_article_by_origin(source_url_str)
 
                 # Convert to dict and add computed fields (Pydantic v2 compatibility)
-                source_dict = source.model_dump()
+                source_dict = source.model_dump(by_alias=True)  # Use aliases like _id
 
                 # Convert URL to string for template compatibility
                 source_dict["url"] = str(source.url)
