@@ -72,10 +72,10 @@ celery_app.conf.update(
             'options': {'queue': 'low', 'priority': 1}
         },
 
-        # Process summary backlog every 2 hours
+        # Process summary backlog every 30 minutes
         'process-summary-backlog': {
             'task': 'celery_app.tasks.process_summary_backlog_task',
-            'schedule': crontab(minute=0, hour='*/2'),  # Every 2 hours
+            'schedule': crontab(minute='*/30'),  # Every 30 minutes
             'options': {'queue': 'low', 'priority': 2}
         },
     },

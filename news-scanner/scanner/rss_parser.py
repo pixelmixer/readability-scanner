@@ -133,13 +133,35 @@ class RSSParser:
             # Extract title
             title = getattr(entry, 'title', 'Untitled Article')
 
-            # Extract publication date
+            # Extract publication date - check multiple possible fields
             pub_date = None
-            for date_field in ['published', 'updated', 'created']:
+            date_fields = [
+                'published',      # Atom published
+                'updated',        # Atom updated
+                'created',        # Generic created
+                'pubDate',        # RSS pubDate
+                'dc:date',        # Dublin Core date
+                'dc:created',     # Dublin Core created
+                'dc:modified',    # Dublin Core modified
+                'prism:publicationDate',  # PRISM publication date
+            ]
+
+            # Debug: Log all available date-related fields
+            available_date_fields = [field for field in dir(entry) if any(keyword in field.lower() for keyword in ['date', 'time', 'pub', 'created', 'updated'])]
+            if available_date_fields:
+                self.logger.debug(f"Available date fields in entry: {available_date_fields}")
+
+            for date_field in date_fields:
                 if hasattr(entry, date_field):
-                    pub_date = self._parse_feed_date(getattr(entry, date_field))
-                    if pub_date:
-                        break
+                    date_value = getattr(entry, date_field)
+                    if date_value:
+                        self.logger.debug(f"Trying to parse date from field '{date_field}': {date_value}")
+                        pub_date = self._parse_feed_date(date_value)
+                        if pub_date:
+                            self.logger.debug(f"Successfully parsed date from field '{date_field}': {pub_date}")
+                            break
+                        else:
+                            self.logger.debug(f"Failed to parse date from field '{date_field}': {date_value}")
 
             # Extract content/summary
             content = ''
@@ -178,6 +200,7 @@ class RSSParser:
     def _parse_feed_date(self, date_string: str) -> Optional[datetime]:
         """
         Parse various date formats from RSS feeds.
+        Handles multiple date formats commonly found in RSS/Atom feeds.
 
         Args:
             date_string: Date string from RSS feed
@@ -189,14 +212,52 @@ class RSSParser:
             return None
 
         try:
-            # feedparser usually provides a time_struct
+            # feedparser usually provides a time_struct - this is the most reliable
             if hasattr(date_string, 'time_struct'):
                 import time
                 return datetime.fromtimestamp(time.mktime(date_string.time_struct))
 
-            # Try to parse as string
+            # Convert to string for manual parsing
+            date_str = str(date_string).strip()
+
+            # Try dateutil parser first (handles most formats)
             from dateutil import parser
-            return parser.parse(str(date_string))
+            try:
+                return parser.parse(date_str)
+            except:
+                pass
+
+            # Manual parsing for specific formats that dateutil might miss
+            import re
+
+            # Handle ISO 8601 formats: 2025-09-30T15:28:22+00:00, 2025-09-30T15:28:22Z
+            iso_pattern = r'(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})([+-]\d{2}:\d{2}|Z)?'
+            iso_match = re.match(iso_pattern, date_str)
+            if iso_match:
+                date_part, time_part, tz_part = iso_match.groups()
+                if tz_part == 'Z':
+                    tz_part = '+00:00'
+                elif tz_part is None:
+                    tz_part = '+00:00'
+                return parser.parse(f"{date_part}T{time_part}{tz_part}")
+
+            # Handle simple date format: 2025-09-30
+            simple_date_pattern = r'^\d{4}-\d{2}-\d{2}$'
+            if re.match(simple_date_pattern, date_str):
+                return parser.parse(f"{date_str}T00:00:00+00:00")
+
+            # Handle RSS pubDate format: Tue, 30 Sep 2025 19:50:52 GMT
+            rss_pattern = r'^[A-Za-z]{3},\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+[A-Za-z]{3,4}$'
+            if re.match(rss_pattern, date_str):
+                return parser.parse(date_str)
+
+            # Handle formats with timezone offsets: Tue, 30 Sep 2025 16:22:49 -0400
+            rss_tz_pattern = r'^[A-Za-z]{3},\s+\d{1,2}\s+[A-Za-z]{3}\s+\d{4}\s+\d{2}:\d{2}:\d{2}\s+[+-]\d{4}$'
+            if re.match(rss_tz_pattern, date_str):
+                return parser.parse(date_str)
+
+            # Last resort: try dateutil with fuzzy parsing
+            return parser.parse(date_str, fuzzy=True)
 
         except Exception as e:
             self.logger.debug(f"Could not parse date '{date_string}': {e}")

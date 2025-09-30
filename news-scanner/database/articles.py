@@ -81,8 +81,13 @@ class ArticleRepository:
             if "url" not in article_data:
                 raise ValueError("Article data must contain 'url' field")
 
-            # Add/update metadata
-            article_data["date"] = datetime.now()
+            # Add/update metadata - preserve publication_date if it exists
+            if "publication_date" not in article_data or article_data["publication_date"] is None:
+                article_data["date"] = datetime.now()
+            else:
+                # Use publication_date as the primary date, but also set analysis date
+                article_data["date"] = article_data["publication_date"]
+                article_data["analysis_date"] = datetime.now()
 
             # Extract hostname if not provided
             if "Host" not in article_data and "url" in article_data:
@@ -312,7 +317,7 @@ class ArticleRepository:
             return 0
 
     async def get_articles_without_summaries(self, limit: int = 100, skip: int = 0) -> List[Article]:
-        """Get articles that don't have summaries yet."""
+        """Get articles that don't have summaries yet, prioritized by publication date (newest first)."""
         try:
             query = {
                 "$or": [
@@ -324,7 +329,11 @@ class ArticleRepository:
             }
 
             logger.debug(f"Querying articles without summaries: {query}")
-            cursor = self.collection.find(query).skip(skip).limit(limit)
+            # Sort by publication date (newest first), fallback to analysis date
+            cursor = self.collection.find(query).sort([
+                ("publication_date", -1),  # Newest publication dates first
+                ("date", -1)              # Fallback to analysis date
+            ]).skip(skip).limit(limit)
             docs = await cursor.to_list(length=limit)
             logger.debug(f"Found {len(docs)} raw documents from database")
             return [Article(**self._clean_article_data(doc)) for doc in docs]
