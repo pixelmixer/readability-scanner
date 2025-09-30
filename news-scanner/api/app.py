@@ -117,6 +117,15 @@ def register_routes(app: FastAPI):
         templates = Jinja2Templates(directory="templates")
         return templates.TemplateResponse("pages/summaries.html", {"request": request})
 
+    # Newspaper page
+    @app.get("/newspaper", include_in_schema=False)
+    async def newspaper_page(request: Request):
+        """Serve the newspaper-style today's news page."""
+        from fastapi.templating import Jinja2Templates
+
+        templates = Jinja2Templates(directory="templates")
+        return templates.TemplateResponse("pages/newspaper.html", {"request": request})
+
 
     # Health check endpoint
     @app.get("/health", tags=["health"])

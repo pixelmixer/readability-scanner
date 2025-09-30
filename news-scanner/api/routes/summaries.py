@@ -3,6 +3,7 @@ Summary management API routes.
 """
 
 import logging
+from datetime import datetime
 from typing import Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Form
 from pydantic import BaseModel, HttpUrl
@@ -179,6 +180,41 @@ async def get_articles_without_summaries(
         logger.error(f"Error getting articles without summaries: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@router.get("/articles/today")
+async def get_todays_articles(limit: int = Query(100, ge=1, le=500)):
+    """Get today's articles for newspaper layout."""
+    try:
+        # Ensure database connection
+        if not db_manager._connected:
+            await db_manager.connect()
+
+        articles = await article_repository.get_todays_articles(limit=limit)
+
+        # Convert to response format
+        article_list = []
+        for article in articles:
+            article_list.append({
+                "url": str(article.url),
+                "title": article.title,
+                "origin": article.origin,
+                "publication_date": article.publication_date,
+                "summary": article.summary,
+                "content": article.content,
+                "cleaned_data": article.cleaned_data,
+                "summary_generated_at": article.summary_generated_at,
+                "summary_model": article.summary_model
+            })
+
+        return {
+            "success": True,
+            "articles": article_list,
+            "count": len(article_list),
+            "date": datetime.now().strftime("%Y-%m-%d")
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting today's articles: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/articles/{article_url:path}")
 async def get_article_with_summary(article_url: str):

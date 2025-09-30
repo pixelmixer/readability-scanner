@@ -350,6 +350,32 @@ class ArticleRepository:
             logger.error(f"Error counting articles without summaries: {e}")
             return 0
 
+    async def get_todays_articles(self, limit: int = 100) -> List[Article]:
+        """Get articles published today, ordered by publication date."""
+        try:
+            from datetime import datetime, timedelta
+
+            # Get today's date range
+            today = datetime.now().date()
+            start_of_day = datetime.combine(today, datetime.min.time())
+            end_of_day = datetime.combine(today, datetime.max.time())
+
+            # Use the actual database field name "date" instead of "publication_date"
+            query = {
+                "date": {
+                    "$gte": start_of_day,
+                    "$lte": end_of_day
+                }
+            }
+
+            cursor = self.collection.find(query).sort("date", -1).limit(limit)
+            docs = await cursor.to_list(length=limit)
+            logger.debug(f"Found {len(docs)} articles for today")
+            return [Article(**self._clean_article_data(doc)) for doc in docs]
+        except Exception as e:
+            logger.error(f"Error getting today's articles: {e}")
+            return []
+
     async def update_article_summary(
         self,
         url: str,
