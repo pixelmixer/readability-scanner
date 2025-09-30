@@ -1,0 +1,355 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Summary Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">Summary Management</h1>
+                <div>
+                    <button id="trigger-summaries-btn" class="btn btn-primary me-2">
+                        <i class="fas fa-play"></i> Generate Summaries
+                    </button>
+                    <button id="refresh-stats-btn" class="btn btn-outline-secondary">
+                        <i class="fas fa-sync"></i> Refresh
+                    </button>
+                </div>
+            </div>
+
+            <!-- Summary Statistics -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="total-articles">-</h4>
+                                    <p class="card-text">Total Articles</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-newspaper fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="completed-summaries">-</h4>
+                                    <p class="card-text">Completed</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-check-circle fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="pending-summaries">-</h4>
+                                    <p class="card-text">Pending</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-clock fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="coverage-percentage">-</h4>
+                                    <p class="card-text">Coverage</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-percentage fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Summary Processing Progress</h5>
+                    <div class="progress" style="height: 25px;">
+                        <div id="progress-bar" class="progress-bar" role="progressbar" style="width: 0%">
+                            <span id="progress-text">0%</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Queue Status -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Queue Status</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="d-flex justify-content-between">
+                                <span>High Priority:</span>
+                                <span class="badge badge-danger" id="high-queue">-</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex justify-content-between">
+                                <span>Normal Priority:</span>
+                                <span class="badge badge-warning" id="normal-queue">-</span>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="d-flex justify-content-between">
+                                <span>Low Priority:</span>
+                                <span class="badge badge-info" id="low-queue">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Articles Without Summaries -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Articles Without Summaries</h5>
+                    <button id="load-articles-btn" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-refresh"></i> Load Articles
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div id="articles-loading" class="text-center" style="display: none;">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    <div id="articles-list">
+                        <p class="text-muted">Click "Load Articles" to see articles that need summaries.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Summary Trigger Modal -->
+<div class="modal fade" id="triggerModal" tabindex="-1" role="dialog" aria-labelledby="triggerModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="triggerModalLabel">Trigger Summary Generation</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="batch-size">Batch Size</label>
+                    <input type="number" class="form-control" id="batch-size" value="50" min="1" max="200">
+                    <small class="form-text text-muted">Number of articles to process in this batch.</small>
+                </div>
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle"></i>
+                    This will queue summary generation tasks for articles that don't have summaries yet.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="confirm-trigger">Generate Summaries</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+$(document).ready(function() {
+    // Load initial statistics
+    loadSummaryStats();
+    loadQueueStatus();
+
+    // Set up event listeners
+    $('#trigger-summaries-btn').click(showTriggerModal);
+    $('#refresh-stats-btn').click(function() {
+        loadSummaryStats();
+        loadQueueStatus();
+    });
+    $('#load-articles-btn').click(loadArticlesWithoutSummaries);
+    $('#confirm-trigger').click(triggerSummaryGeneration);
+
+    // Auto-refresh every 30 seconds
+    setInterval(function() {
+        loadSummaryStats();
+        loadQueueStatus();
+    }, 30000);
+});
+
+function loadSummaryStats() {
+    $.get('/summaries/stats')
+        .done(function(data) {
+            // API returns data directly, not wrapped in success object
+            $('#total-articles').text(data.total_articles);
+            $('#completed-summaries').text(data.status_breakdown.completed || 0);
+            $('#pending-summaries').text(data.articles_without_summaries);
+            $('#coverage-percentage').text(data.summary_coverage.toFixed(1) + '%');
+
+            // Update progress bar
+            const percentage = data.summary_coverage;
+            const progressBar = $('#progress-bar');
+            const progressText = $('#progress-text');
+
+            progressBar.css('width', percentage + '%');
+            progressText.text(percentage.toFixed(1) + '%');
+
+            // Update progress bar color based on percentage
+            progressBar.removeClass('bg-success bg-warning bg-danger');
+            if (percentage >= 80) {
+                progressBar.addClass('bg-success');
+            } else if (percentage >= 50) {
+                progressBar.addClass('bg-warning');
+            } else {
+                progressBar.addClass('bg-danger');
+            }
+        })
+        .fail(function(xhr) {
+            console.error('Error loading summary stats:', xhr);
+        });
+}
+
+function loadQueueStatus() {
+    $.get('/summaries/queue/status')
+        .done(function(data) {
+            if (data.success && data.queue_stats.queues) {
+                $('#high-queue').text(data.queue_stats.queues.high?.active || 0);
+                $('#normal-queue').text(data.queue_stats.queues.normal?.active || 0);
+                $('#low-queue').text(data.queue_stats.queues.low?.active || 0);
+            }
+        })
+        .fail(function(xhr) {
+            console.error('Error loading queue status:', xhr);
+        });
+}
+
+function loadArticlesWithoutSummaries() {
+    const loadingDiv = $('#articles-loading');
+    const articlesDiv = $('#articles-list');
+
+    loadingDiv.show();
+    articlesDiv.html('');
+
+    $.get('/summaries/articles/without-summaries?limit=20')
+        .done(function(data) {
+            if (data.success) {
+                if (data.articles.length === 0) {
+                    articlesDiv.html('<p class="text-success">All articles have summaries! 🎉</p>');
+                } else {
+                    let html = '<div class="list-group">';
+                    data.articles.forEach(function(article) {
+                        html += `
+                            <div class="list-group-item d-flex justify-content-between align-items-start">
+                                <div class="ms-2 me-auto">
+                                    <div class="fw-bold">${article.title || 'No Title'}</div>
+                                    <small class="text-muted">${article.origin}</small>
+                                    <br>
+                                    <small class="text-muted">Status: ${article.summary_status}</small>
+                                </div>
+                                <button class="btn btn-sm btn-outline-primary" onclick="triggerSingleSummary('${article.url}')">
+                                    Generate Summary
+                                </button>
+                            </div>
+                        `;
+                    });
+                    html += '</div>';
+                    articlesDiv.html(html);
+                }
+            }
+        })
+        .fail(function(xhr) {
+            console.error('Error loading articles:', xhr);
+            articlesDiv.html('<p class="text-danger">Error loading articles. Please try again.</p>');
+        })
+        .always(function() {
+            loadingDiv.hide();
+        });
+}
+
+function showTriggerModal() {
+    $('#triggerModal').modal('show');
+}
+
+function triggerSummaryGeneration() {
+    const batchSize = $('#batch-size').val();
+    const confirmBtn = $('#confirm-trigger');
+
+    confirmBtn.prop('disabled', true)
+              .html('<span class="spinner-border spinner-border-sm mr-2"></span>Processing...');
+
+    $.post('/summaries/trigger', {
+        batch_size: parseInt(batchSize)
+    })
+    .done(function(data) {
+        if (data.success) {
+            // Close modal
+            $('#triggerModal').modal('hide');
+
+            // Show success message
+            showToast(
+                'Summary Generation Triggered!',
+                `Summary generation triggered for ${batchSize} articles!`,
+                'success'
+            );
+
+            // Refresh stats
+            loadSummaryStats();
+            loadQueueStatus();
+        } else {
+            showToast('Summary Generation Failed', data.detail || 'Unknown error', 'error');
+        }
+    })
+    .fail(function(xhr) {
+        console.error('Error triggering summary generation:', xhr);
+        showToast('Summary Generation Failed', 'Error triggering summary generation. Please try again.', 'error');
+    })
+    .always(function() {
+        confirmBtn.prop('disabled', false)
+                  .html('Generate Summaries');
+    });
+}
+
+function triggerSingleSummary(articleUrl) {
+    $.post(`/summaries/trigger/${encodeURIComponent(articleUrl)}`)
+        .done(function(data) {
+            if (data.success) {
+                showToast('Summary Generation Triggered!', 'Summary generation triggered for this article!', 'success');
+                loadSummaryStats();
+                loadQueueStatus();
+            } else {
+                showToast('Summary Generation Failed', data.detail || 'Unknown error', 'error');
+            }
+        })
+        .fail(function(xhr) {
+            console.error('Error triggering single summary:', xhr);
+            showToast('Summary Generation Failed', 'Error triggering summary generation. Please try again.', 'error');
+        });
+}
+
+// Set page logging
+window.pageLogged = true;
+console.log('📝 Summary Management Page Loaded');
+</script>
+{% endblock %}

@@ -71,6 +71,13 @@ celery_app.conf.update(
             'schedule': crontab(minute=0, hour=2, day_of_week=0),  # Sunday 2 AM
             'options': {'queue': 'low', 'priority': 1}
         },
+
+        # Process summary backlog every 2 hours
+        'process-summary-backlog': {
+            'task': 'celery_app.tasks.process_summary_backlog_task',
+            'schedule': crontab(minute=0, hour='*/2'),  # Every 2 hours
+            'options': {'queue': 'low', 'priority': 2}
+        },
     },
 
     # Timezone

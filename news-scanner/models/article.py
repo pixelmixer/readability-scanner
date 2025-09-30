@@ -57,6 +57,14 @@ class Article(ArticleBase):
     spache: Optional[float] = Field(None, alias="Spache")
     automated_readability: Optional[float] = Field(None, alias="Automated Readability")
 
+    # Summary fields
+    summary: Optional[str] = Field(None, description="AI-generated article summary")
+    summary_generated_at: Optional[datetime] = Field(None, description="When the summary was generated")
+    summary_model: Optional[str] = Field(None, description="LLM model used for summary generation")
+    summary_prompt_version: Optional[str] = Field(None, description="Version of the prompt used")
+    summary_processing_status: Optional[str] = Field(None, description="Status: pending, processing, completed, failed")
+    summary_error: Optional[str] = Field(None, description="Error message if summary generation failed")
+
     # Metadata
     date: Optional[datetime] = Field(None, description="Analysis date")
 

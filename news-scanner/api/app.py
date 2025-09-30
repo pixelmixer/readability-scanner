@@ -73,7 +73,7 @@ def create_app() -> FastAPI:
     # CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"],  # Configure as needed
+        allow_origins=["http://localhost:4912", "http://localhost:4913", "*"],  # Allow both services
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -92,7 +92,7 @@ def register_routes(app: FastAPI):
     """Register all application routes."""
 
     # Import route modules
-    from .routes import sources, daily, graph, export, scan
+    from .routes import sources, daily, graph, export, scan, summaries
 
     # Include route modules
     app.include_router(sources.router, prefix="/sources", tags=["sources"])
@@ -100,12 +100,23 @@ def register_routes(app: FastAPI):
     app.include_router(graph.router, prefix="/graph", tags=["graph"])
     app.include_router(export.router, prefix="/export", tags=["export"])
     app.include_router(scan.router, prefix="/scan", tags=["scan"])
+    app.include_router(summaries.router, prefix="/summaries", tags=["summaries"])
 
     # Root redirect
     @app.get("/", include_in_schema=False)
     async def root():
         """Redirect root to sources page."""
         return RedirectResponse(url="/sources", status_code=302)
+
+    # Summary management page
+    @app.get("/summaries-page", include_in_schema=False)
+    async def summaries_page(request: Request):
+        """Serve the summary management page."""
+        from fastapi.templating import Jinja2Templates
+
+        templates = Jinja2Templates(directory="templates")
+        return templates.TemplateResponse("pages/summaries.html", {"request": request})
+
 
     # Health check endpoint
     @app.get("/health", tags=["health"])

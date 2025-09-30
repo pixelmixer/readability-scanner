@@ -311,6 +311,116 @@ class ArticleRepository:
             logger.error(f"Error deleting old articles: {e}")
             return 0
 
+    async def get_articles_without_summaries(self, limit: int = 100, skip: int = 0) -> List[Article]:
+        """Get articles that don't have summaries yet."""
+        try:
+            query = {
+                "$or": [
+                    {"summary": {"$exists": False}},
+                    {"summary": None},
+                    {"summary": ""},
+                    {"summary_processing_status": {"$in": ["pending", "failed"]}}
+                ]
+            }
+
+            cursor = self.collection.find(query).skip(skip).limit(limit)
+            docs = await cursor.to_list(length=limit)
+            return [Article(**self._clean_article_data(doc)) for doc in docs]
+        except Exception as e:
+            logger.error(f"Error getting articles without summaries: {e}")
+            return []
+
+    async def count_articles_without_summaries(self) -> int:
+        """Count articles that don't have summaries yet."""
+        try:
+            query = {
+                "$or": [
+                    {"summary": {"$exists": False}},
+                    {"summary": None},
+                    {"summary": ""},
+                    {"summary_processing_status": {"$in": ["pending", "failed"]}}
+                ]
+            }
+            return await self.collection.count_documents(query)
+        except Exception as e:
+            logger.error(f"Error counting articles without summaries: {e}")
+            return 0
+
+    async def update_article_summary(
+        self,
+        url: str,
+        summary: str,
+        model: str,
+        prompt_version: str,
+        status: str = "completed",
+        error: str = None
+    ) -> bool:
+        """Update an article with summary information."""
+        try:
+            update_data = {
+                "summary": summary,
+                "summary_generated_at": datetime.utcnow(),
+                "summary_model": model,
+                "summary_prompt_version": prompt_version,
+                "summary_processing_status": status
+            }
+
+            if error:
+                update_data["summary_error"] = error
+            else:
+                # Clear any existing error by setting it to null
+                update_data["summary_error"] = None
+
+            result = await self.collection.update_one(
+                {"url": url},
+                {"$set": update_data}
+            )
+
+            if result.modified_count > 0:
+                logger.debug(f"Updated summary for article: {url}")
+                return True
+            else:
+                logger.warning(f"No article found with URL: {url}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error updating article summary for {url}: {e}")
+            return False
+
+    async def get_summary_statistics(self) -> Dict[str, Any]:
+        """Get statistics about summary processing."""
+        try:
+            pipeline = [
+                {
+                    "$group": {
+                        "_id": "$summary_processing_status",
+                        "count": {"$sum": 1}
+                    }
+                }
+            ]
+
+            cursor = self.collection.aggregate(pipeline)
+            status_counts = await cursor.to_list(length=None)
+
+            # Convert to dictionary
+            stats = {}
+            for item in status_counts:
+                status = item["_id"] or "no_summary"
+                stats[status] = item["count"]
+
+            # Get total count
+            total_articles = await self.collection.count_documents({})
+
+            return {
+                "total_articles": total_articles,
+                "status_breakdown": stats,
+                "summary_coverage": (stats.get("completed", 0) / total_articles * 100) if total_articles > 0 else 0
+            }
+
+        except Exception as e:
+            logger.error(f"Error getting summary statistics: {e}")
+            return {"total_articles": 0, "status_breakdown": {}, "summary_coverage": 0}
+
 
 # Global repository instance
 article_repository = ArticleRepository()
