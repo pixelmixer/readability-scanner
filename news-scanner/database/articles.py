@@ -288,6 +288,29 @@ class ArticleRepository:
             logger.error(f"Error deleting articles by origin {origin}: {e}")
             return 0
 
+    async def count_articles_before_date(self, cutoff_date: datetime) -> int:
+        """Count articles published before a certain date."""
+        try:
+            count = await self.collection.count_documents({
+                "publication date": {"$lt": cutoff_date}
+            })
+            return count
+        except Exception as e:
+            logger.error(f"Error counting old articles: {e}")
+            return 0
+
+    async def delete_articles_before_date(self, cutoff_date: datetime) -> int:
+        """Delete articles published before a certain date."""
+        try:
+            result = await self.collection.delete_many({
+                "publication date": {"$lt": cutoff_date}
+            })
+            logger.info(f"Deleted {result.deleted_count} articles older than {cutoff_date}")
+            return result.deleted_count
+        except Exception as e:
+            logger.error(f"Error deleting old articles: {e}")
+            return 0
+
 
 # Global repository instance
 article_repository = ArticleRepository()

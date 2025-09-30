@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     # RSS-Bridge Configuration
     rss_bridge_url: str = "http://rss-bridge:80"
 
+    # Redis Configuration
+    redis_url: str = "redis://redis:6379/0"
+    celery_broker_url: str = "redis://redis:6379/0"
+    celery_result_backend: str = "redis://redis:6379/0"
+
     # Scanning Configuration
     scan_interval: str = Field(default="0 */6 * * *", description="Cron expression for scanning interval")
     max_concurrent_scans: int = 5

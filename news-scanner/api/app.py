@@ -110,14 +110,17 @@ def register_routes(app: FastAPI):
     # Health check endpoint
     @app.get("/health", tags=["health"])
     async def health_check():
-        """Health check endpoint."""
+        """Health check endpoint with Celery queue status."""
         from database.connection import db_manager
         from scheduler.scheduler import rss_scheduler
+        from celery_app.queue_manager import queue_manager
 
         db_healthy = await db_manager.health_check()
         scheduler_status = rss_scheduler.get_status()
+        queue_stats = await queue_manager.get_queue_stats()
 
-        overall_healthy = db_healthy and scheduler_status["running"]
+        celery_healthy = queue_stats.get("success", False)
+        overall_healthy = db_healthy and scheduler_status["running"] and celery_healthy
 
         health_status = {
             "status": "healthy" if overall_healthy else "unhealthy",
@@ -125,7 +128,12 @@ def register_routes(app: FastAPI):
             "build_version": settings.build_version,
             "build_timestamp": settings.build_timestamp,
             "database": "connected" if db_healthy else "disconnected",
-            "scheduler": scheduler_status
+            "scheduler": scheduler_status,
+            "celery": {
+                "status": "connected" if celery_healthy else "disconnected",
+                "active_tasks": queue_stats.get("total_active_tasks", 0),
+                "queues": queue_stats.get("queues", {})
+            }
         }
 
         status_code = 200 if overall_healthy else 503

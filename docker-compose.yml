@@ -7,30 +7,6 @@ services:
       - "3000"
     restart: unless-stopped
 
-  proxy-scanner:
-    build:
-      context: ./
-    develop:
-      watch:
-        # sync static content
-        - path: ./src
-          action: sync
-          target: /usr/src/app
-          ignore:
-            - node_modules/
-
-    networks:
-      - readable
-    depends_on:
-      - readability
-      - readability-database
-      - rss-bridge
-    ports:
-      - "4912:8080"
-    volumes:
-      - "./src:/usr/src/app"
-    restart: unless-stopped
-
   readability-database:
     image: mongo
     networks:
@@ -68,6 +44,18 @@ services:
       - ./hug/.:/src
     restart: unless-stopped
 
+  # Redis for Celery message broker
+  redis:
+    image: redis:7-alpine
+    networks:
+      - readable
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
   news-scanner:
     build: ./news-scanner/
     container_name: news-scanner
@@ -78,6 +66,7 @@ services:
       - readability-database
       - readability
       - rss-bridge
+      - redis
     ports:
       - "4913:8080"
     volumes:
@@ -91,5 +80,58 @@ services:
       retries: 3
       start_period: 30s
 
+  # Celery worker for processing queues
+  celery-worker:
+    build: ./news-scanner/
+    container_name: celery-worker
+    env_file: ./news-scanner/.env
+    command: celery -A celery_app.celery_worker worker --loglevel=info --queues=high,normal,low -E
+    networks:
+      - readable
+    depends_on:
+      - readability-database
+      - readability
+      - redis
+    volumes:
+      - "./news-scanner:/app"
+      - "./news-scanner/logs:/app/logs"
+    restart: unless-stopped
+
+  # Celery beat for scheduling
+  celery-beat:
+    build: ./news-scanner/
+    container_name: celery-beat
+    env_file: ./news-scanner/.env
+    command: celery -A celery_app.celery_worker beat --loglevel=info
+    networks:
+      - readable
+    depends_on:
+      - redis
+      - celery-worker
+    volumes:
+      - "./news-scanner:/app"
+      - "./news-scanner/logs:/app/logs"
+    restart: unless-stopped
+
+  # Celery monitor (optional - for debugging)
+  celery-flower:
+    build: ./news-scanner/
+    container_name: celery-flower
+    env_file: ./news-scanner/.env
+    command: celery -A celery_app.celery_worker flower --port=5555
+    networks:
+      - readable
+    depends_on:
+      - redis
+      - celery-worker
+    ports:
+      - "5555:5555"
+    volumes:
+      - "./news-scanner:/app"
+    restart: unless-stopped
+
 networks:
   readable:
+
+volumes:
+  redis_data:

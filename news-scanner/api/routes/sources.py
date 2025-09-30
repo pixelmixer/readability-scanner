@@ -13,6 +13,7 @@ from database.sources import source_repository
 from scanner.rss_parser import rss_parser
 from scanner.scanner import scan_single_source
 from api.dependencies import get_database, get_templates, get_settings
+from celery_app.queue_manager import queue_manager
 
 logger = logging.getLogger(__name__)
 
@@ -142,9 +143,12 @@ async def add_source(
 
         logger.info(f"Added new RSS source: {url}")
 
-        # Start immediate scan in background
-        import asyncio
-        asyncio.create_task(scan_new_source_background(url, name))
+        # Queue immediate scan with normal priority
+        queue_result = await queue_manager.queue_source_scan(url, priority=7)
+        if queue_result['success']:
+            logger.info(f"📤 Immediate scan queued for new source: {name} (Task ID: {queue_result['task_id']})")
+        else:
+            logger.warning(f"⚠️ Failed to queue immediate scan for new source: {name}")
 
         # Redirect back to sources page
         return RedirectResponse(url="/sources", status_code=302)
@@ -195,10 +199,13 @@ async def edit_source(
 
         logger.info(f"Updated RSS source: {source_id}")
 
-        # Start immediate scan if URL changed
+        # Queue immediate scan if URL changed
         if url_changed:
-            import asyncio
-            asyncio.create_task(scan_updated_source_background(url, name, "URL changed"))
+            queue_result = await queue_manager.queue_source_scan(url, priority=7)
+            if queue_result['success']:
+                logger.info(f"📤 Immediate scan queued for updated source: {name} (Task ID: {queue_result['task_id']})")
+            else:
+                logger.warning(f"⚠️ Failed to queue immediate scan for updated source: {name}")
 
         return RedirectResponse(url="/sources", status_code=302)
 
@@ -228,42 +235,74 @@ async def delete_source(source_id: str):
 
 
 @router.post("/refresh/{source_id}")
-async def refresh_source(source_id: str):
-    """Manually refresh/scan an RSS source."""
+async def refresh_source(source_id: str, wait_for_result: bool = True):
+    """
+    Manually refresh/scan an RSS source using high-priority queue.
+
+    Args:
+        source_id: Database ID of the source
+        wait_for_result: If True, wait for task completion (default)
+    """
     try:
         # Get the source
         source = await source_repository.get_source_by_id(source_id)
         if not source:
             raise HTTPException(status_code=404, detail="Source not found")
 
-        logger.info(f"🔄 Manual refresh triggered for source: {source.name} ({source.url})")
+        logger.info(f"🔄 Manual refresh queued for source: {source.name} ({source.url})")
 
-        # Perform scan
-        scan_result = await scan_single_source(str(source.url), source.name)
+        # Queue the manual refresh task with high priority
+        queue_result = await queue_manager.queue_manual_refresh(
+            source_id=source_id,
+            source_url=str(source.url),
+            wait_for_result=wait_for_result,
+            timeout=300  # 5 minute timeout
+        )
+
+        if not queue_result['success']:
+            logger.error(f"❌ Failed to queue manual refresh for {source.name}: {queue_result.get('error')}")
+            raise HTTPException(status_code=500, detail=queue_result.get('error', 'Failed to queue refresh'))
 
         # Update last refreshed timestamp
         await source_repository.update_last_refreshed(source_id)
 
-        if scan_result.success:
-            logger.info(f"✅ Manual refresh completed for {source.name}: {scan_result.stats.scanned}/{scan_result.stats.total} articles processed")
+        if wait_for_result:
+            # Return the task result
+            if queue_result.get('completed') and queue_result.get('result', {}).get('success'):
+                task_result = queue_result['result']
+                logger.info(f"✅ Manual refresh completed for {source.name}")
 
+                return {
+                    "success": True,
+                    "task_id": queue_result['task_id'],
+                    "result": {
+                        "scanned": task_result.get('scanned', 0),
+                        "total": task_result.get('total', 0),
+                        "failed": task_result.get('failed', 0),
+                        "failure_rate": task_result.get('failure_rate', 0),
+                        "source": source.name,
+                        "url": str(source.url)
+                    }
+                }
+            else:
+                # Task failed or timed out
+                error_msg = queue_result.get('error', 'Refresh task failed or timed out')
+                logger.error(f"❌ Manual refresh failed for {source.name}: {error_msg}")
+                return {
+                    "success": False,
+                    "task_id": queue_result.get('task_id'),
+                    "error": error_msg,
+                    "source": source.name
+                }
+        else:
+            # Return immediately with task ID
             return {
                 "success": True,
-                "result": {
-                    "scanned": scan_result.stats.scanned,
-                    "total": scan_result.stats.total,
-                    "failed": scan_result.stats.failed,
-                    "source": source.name,
-                    "url": str(source.url),
-                    "duration": scan_result.duration_seconds
-                }
-            }
-        else:
-            logger.error(f"❌ Manual refresh failed for {source.name}: {scan_result.error}")
-            return {
-                "success": False,
-                "error": scan_result.error or "Scan failed",
-                "source": source.name
+                "task_id": queue_result['task_id'],
+                "status": "queued",
+                "message": f"Refresh queued for {source.name}",
+                "source": source.name,
+                "url": str(source.url)
             }
 
     except HTTPException:
@@ -273,31 +312,69 @@ async def refresh_source(source_id: str):
         raise HTTPException(status_code=500, detail="Error refreshing source")
 
 
-async def scan_new_source_background(url: str, name: str):
-    """Background task to scan a newly added source."""
+# Queue Management Endpoints
+
+@router.get("/queue/status")
+async def get_queue_status():
+    """Get current queue statistics and worker status."""
     try:
-        logger.info(f"🔍 Starting immediate scan of new source: {name} ({url})")
-        scan_result = await scan_single_source(url, name)
-
-        if scan_result.has_high_failure_rate:
-            logger.warning(f"⚠️ New source {name} has high failure rate. Consider checking for anti-bot protection.")
-        else:
-            logger.info(f"✅ Immediate scan completed for new source: {scan_result.stats.scanned}/{scan_result.stats.total} articles processed")
-
+        stats = await queue_manager.get_queue_stats()
+        return stats
     except Exception as e:
-        logger.error(f"Background scan failed for new source {url}: {e}")
+        logger.error(f"Error getting queue status: {e}")
+        raise HTTPException(status_code=500, detail="Error getting queue status")
 
 
-async def scan_updated_source_background(url: str, name: str, reason: str):
-    """Background task to scan an updated source."""
+@router.get("/queue/task/{task_id}")
+async def get_task_status(task_id: str):
+    """Get status of a specific task."""
     try:
-        logger.info(f"🔍 Starting immediate scan of updated source ({reason}): {name} ({url})")
-        scan_result = await scan_single_source(url, name)
-
-        if scan_result.has_high_failure_rate:
-            logger.warning(f"⚠️ Updated source {name} has high failure rate.")
-        else:
-            logger.info(f"✅ Immediate scan completed for updated source: {scan_result.stats.scanned}/{scan_result.stats.total} articles processed")
-
+        status = await queue_manager.get_task_status(task_id)
+        return status
     except Exception as e:
-        logger.error(f"Background scan failed for updated source {url}: {e}")
+        logger.error(f"Error getting task status: {e}")
+        raise HTTPException(status_code=500, detail="Error getting task status")
+
+
+@router.post("/queue/trigger-scan")
+async def trigger_scheduled_scan():
+    """Manually trigger the scheduled scan for all sources."""
+    try:
+        result = await queue_manager.trigger_scheduled_scan()
+        if result['success']:
+            logger.info(f"📤 Scheduled scan triggered (Task ID: {result['task_id']})")
+            return {
+                "success": True,
+                "message": "Scheduled scan triggered successfully",
+                "task_id": result['task_id']
+            }
+        else:
+            logger.error(f"❌ Failed to trigger scheduled scan: {result.get('error')}")
+            raise HTTPException(status_code=500, detail=result.get('error', 'Failed to trigger scan'))
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error triggering scheduled scan: {e}")
+        raise HTTPException(status_code=500, detail="Error triggering scheduled scan")
+
+
+@router.delete("/queue/task/{task_id}")
+async def cancel_task(task_id: str):
+    """Cancel a pending or running task."""
+    try:
+        result = await queue_manager.cancel_task(task_id)
+        if result['success']:
+            logger.info(f"🚫 Task canceled: {task_id}")
+            return {
+                "success": True,
+                "message": f"Task {task_id} canceled successfully"
+            }
+        else:
+            logger.error(f"❌ Failed to cancel task {task_id}: {result.get('error')}")
+            return {
+                "success": False,
+                "error": result.get('error', 'Failed to cancel task')
+            }
+    except Exception as e:
+        logger.error(f"Error canceling task: {e}")
+        raise HTTPException(status_code=500, detail="Error canceling task")
