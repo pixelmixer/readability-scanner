@@ -9,3 +9,4 @@ __pycache__
 .env.staging
 .env.production
 *.log
+celerybeat-schedule
