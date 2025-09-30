@@ -69,30 +69,26 @@
     </div>
 </div>
 
-<!-- Article Detail Modal -->
-<div class="modal fade" id="articleModal" tabindex="-1" role="dialog" aria-labelledby="articleModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="articleModalLabel">Article Details</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div id="article-content">
-                    <!-- Article content will be populated here -->
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
-                <a id="article-link" href="#" target="_blank" class="btn btn-primary">
-                    <i class="fas fa-external-link-alt"></i> Read Original
-                </a>
-            </div>
-        </div>
-    </div>
-</div>
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+.article-content {
+    max-height: 200px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.article-content.expanded {
+    max-height: none;
+    overflow: visible;
+}
+
+.article-content p {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+</style>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -155,16 +151,34 @@ function renderNewspaperLayout(articles) {
     $('#main-headlines').empty();
     $('#articles-grid').empty();
 
-    // Separate articles with and without summaries
-    const articlesWithSummaries = articles.filter(article => article.summary);
-    const articlesWithoutSummaries = articles.filter(article => !article.summary);
+    // Helper function to get display content (summary or fallback to content)
+    function getDisplayContent(article) {
+        if (article.summary) {
+            return article.summary;
+        } else if (article.cleaned_data) {
+            return article.cleaned_data;
+        } else if (article.content) {
+            return article.content;
+        } else {
+            return 'No content available';
+        }
+    }
 
-    // Render main headlines (first 3 articles with summaries)
-    const mainHeadlines = articlesWithSummaries.slice(0, 3);
+    // Helper function to format publication date
+    function formatDate(dateString) {
+        if (!dateString) return 'Unknown date';
+        const date = new Date(dateString);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    }
+
+    // Render main headlines (first 3 articles)
+    const mainHeadlines = articles.slice(0, 3);
     mainHeadlines.forEach(function(article, index) {
         const isMain = index === 0;
         const colClass = isMain ? 'col-md-8' : 'col-md-4';
         const cardClass = isMain ? 'border-primary' : '';
+        const displayContent = getDisplayContent(article);
+        const articleId = 'article-' + article.url.replace(/[^a-zA-Z0-9]/g, '-');
 
         const headlineHtml = `
             <div class="${colClass} mb-3">
@@ -173,15 +187,24 @@ function renderNewspaperLayout(articles) {
                         <h4 class="card-title ${isMain ? 'text-primary' : ''}">
                             ${article.title || 'No Title'}
                         </h4>
-                        <p class="card-text">
-                            ${article.summary || 'No summary available'}
-                        </p>
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="mb-2">
                             <small class="text-muted">
+                                <i class="fas fa-calendar"></i> ${formatDate(article.publication_date)}
+                                <span class="mx-2">|</span>
                                 <i class="fas fa-rss"></i> ${article.origin}
+                                ${article.author ? `<span class="mx-2">|</span><i class="fas fa-user"></i> ${article.author}` : ''}
                             </small>
-                            <button class="btn btn-sm btn-outline-primary" onclick="showArticleDetails('${article.url}')">
-                                <i class="fas fa-expand"></i> Read More
+                        </div>
+                        <div class="mb-2">
+                            ${article.summary ? '<span class="badge badge-success">Summary</span>' : '<span class="badge badge-info">Full Content</span>'}
+                        </div>
+                        <div class="article-content" id="${articleId}">
+                            <p class="card-text">${displayContent}</p>
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleArticleContent('${articleId}')">
+                                <i class="fas fa-chevron-down" id="${articleId}-icon"></i>
+                                <span id="${articleId}-text">Show Full Article</span>
                             </button>
                         </div>
                     </div>
@@ -192,22 +215,33 @@ function renderNewspaperLayout(articles) {
     });
 
     // Render remaining articles in grid
-    const remainingArticles = articlesWithSummaries.slice(3);
+    const remainingArticles = articles.slice(3);
     remainingArticles.forEach(function(article) {
+        const displayContent = getDisplayContent(article);
+        const articleId = 'article-' + article.url.replace(/[^a-zA-Z0-9]/g, '-');
         const articleHtml = `
             <div class="col-md-6 col-lg-4 mb-3">
                 <div class="card h-100">
                     <div class="card-body">
                         <h5 class="card-title">${article.title || 'No Title'}</h5>
-                        <p class="card-text">
-                            ${article.summary || 'No summary available'}
-                        </p>
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="mb-2">
                             <small class="text-muted">
+                                <i class="fas fa-calendar"></i> ${formatDate(article.publication_date)}
+                                <span class="mx-2">|</span>
                                 <i class="fas fa-rss"></i> ${article.origin}
+                                ${article.author ? `<span class="mx-2">|</span><i class="fas fa-user"></i> ${article.author}` : ''}
                             </small>
-                            <button class="btn btn-sm btn-outline-primary" onclick="showArticleDetails('${article.url}')">
-                                <i class="fas fa-expand"></i> Read More
+                        </div>
+                        <div class="mb-2">
+                            ${article.summary ? '<span class="badge badge-success">Summary</span>' : '<span class="badge badge-info">Full Content</span>'}
+                        </div>
+                        <div class="article-content" id="${articleId}">
+                            <p class="card-text">${displayContent}</p>
+                        </div>
+                        <div class="mt-2">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleArticleContent('${articleId}')">
+                                <i class="fas fa-chevron-down" id="${articleId}-icon"></i>
+                                <span id="${articleId}-text">Show Full Article</span>
                             </button>
                         </div>
                     </div>
@@ -216,79 +250,26 @@ function renderNewspaperLayout(articles) {
         `;
         $('#articles-grid').append(articleHtml);
     });
-
-    // Add articles without summaries at the end
-    if (articlesWithoutSummaries.length > 0) {
-        const noSummaryHtml = `
-            <div class="col-12 mb-3">
-                <div class="card border-warning">
-                    <div class="card-header bg-warning text-dark">
-                        <h5 class="mb-0">
-                            <i class="fas fa-clock"></i> Articles Pending Summary (${articlesWithoutSummaries.length})
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <div class="row">
-        `;
-
-        articlesWithoutSummaries.slice(0, 6).forEach(function(article) {
-            const articleHtml = `
-                <div class="col-md-6 mb-2">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <span>${article.title || 'No Title'}</span>
-                        <small class="text-muted">${article.origin}</small>
-                    </div>
-                </div>
-            `;
-            $('#articles-grid').append(noSummaryHtml + articleHtml);
-        });
-
-        $('#articles-grid').append('</div></div></div>');
-    }
 }
 
-function showArticleDetails(articleUrl) {
-    // Find the article data
-    $.get(`/summaries/articles/${encodeURIComponent(articleUrl)}`)
-        .done(function(article) {
-            const content = article.cleaned_data || article.content || 'No content available';
-            const summary = article.summary || 'No summary available';
+function toggleArticleContent(articleId) {
+    const contentDiv = $('#' + articleId);
+    const icon = $('#' + articleId + '-icon');
+    const text = $('#' + articleId + '-text');
 
-            $('#articleModalLabel').text(article.title || 'Article Details');
-            $('#article-link').attr('href', article.url);
-
-            const articleContent = `
-                <div class="mb-3">
-                    <h6 class="text-muted">Summary:</h6>
-                    <p class="font-italic">${summary}</p>
-                </div>
-                <div class="mb-3">
-                    <h6 class="text-muted">Full Content:</h6>
-                    <div class="border p-3" style="max-height: 400px; overflow-y: auto;">
-                        ${content.replace(/\n/g, '<br>')}
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <small class="text-muted">
-                            <strong>Source:</strong> ${article.origin}
-                        </small>
-                    </div>
-                    <div class="col-md-6">
-                        <small class="text-muted">
-                            <strong>Published:</strong> ${new Date(article.publication_date).toLocaleDateString()}
-                        </small>
-                    </div>
-                </div>
-            `;
-
-            $('#article-content').html(articleContent);
-            $('#articleModal').modal('show');
-        })
-        .fail(function(xhr) {
-            console.error('Error loading article details:', xhr);
-            showToast('Error', 'Failed to load article details', 'error');
-        });
+    if (contentDiv.hasClass('expanded')) {
+        // Collapse
+        contentDiv.removeClass('expanded');
+        contentDiv.css('max-height', '200px').css('overflow', 'hidden');
+        icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+        text.text('Show Full Article');
+    } else {
+        // Expand
+        contentDiv.addClass('expanded');
+        contentDiv.css('max-height', 'none').css('overflow', 'visible');
+        icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
+        text.text('Hide Full Article');
+    }
 }
 
 // Set page logging
