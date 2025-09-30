@@ -517,10 +517,17 @@ def process_summary_backlog_task(self, batch_size: int = 10) -> Dict[str, Any]:
             # Ensure database connection
             loop.run_until_complete(ensure_database_connection())
 
+            # Debug: Check total count first
+            total_count = loop.run_until_complete(
+                article_repository.count_articles_without_summaries()
+            )
+            logger.info(f"📊 Total articles without summaries: {total_count}")
+
             # Get articles without summaries
             articles = loop.run_until_complete(
                 article_repository.get_articles_without_summaries(limit=batch_size)
             )
+            logger.info(f"📋 Retrieved {len(articles)} articles from database")
 
             if not articles:
                 logger.info("No articles found that need summaries")

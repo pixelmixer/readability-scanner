@@ -323,8 +323,10 @@ class ArticleRepository:
                 ]
             }
 
+            logger.debug(f"Querying articles without summaries: {query}")
             cursor = self.collection.find(query).skip(skip).limit(limit)
             docs = await cursor.to_list(length=limit)
+            logger.debug(f"Found {len(docs)} raw documents from database")
             return [Article(**self._clean_article_data(doc)) for doc in docs]
         except Exception as e:
             logger.error(f"Error getting articles without summaries: {e}")
@@ -341,7 +343,9 @@ class ArticleRepository:
                     {"summary_processing_status": {"$in": ["pending", "failed"]}}
                 ]
             }
-            return await self.collection.count_documents(query)
+            count = await self.collection.count_documents(query)
+            logger.debug(f"Count query result: {count} articles without summaries")
+            return count
         except Exception as e:
             logger.error(f"Error counting articles without summaries: {e}")
             return 0

@@ -4,8 +4,8 @@ Summary management API routes.
 
 import logging
 from typing import Dict, Any, Optional
-from fastapi import APIRouter, HTTPException, Query, BackgroundTasks
-from pydantic import BaseModel
+from fastapi import APIRouter, HTTPException, Query, BackgroundTasks, Form
+from pydantic import BaseModel, HttpUrl
 
 from database.articles import article_repository
 from database.connection import db_manager
@@ -15,11 +15,6 @@ from celery_app.queue_manager import queue_manager
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
-
-
-class SummaryTriggerRequest(BaseModel):
-    """Request model for triggering summary generation."""
-    batch_size: int = 50
 
 
 class SummaryStatsResponse(BaseModel):
@@ -57,7 +52,7 @@ async def get_summary_statistics():
 
 
 @router.post("/trigger")
-async def trigger_summary_generation(request: SummaryTriggerRequest):
+async def trigger_summary_generation(batch_size: int = Form(50)):
     """Manually trigger summary generation for articles."""
     try:
         # Ensure database connection
@@ -69,17 +64,17 @@ async def trigger_summary_generation(request: SummaryTriggerRequest):
 
         # Trigger summary processing
         task_result = manual_summary_trigger_task.apply_async(
-            args=[request.batch_size],
+            args=[batch_size],
             queue='normal',
             priority=5
         )
 
         return {
             "success": True,
-            "message": f"Summary generation triggered for up to {request.batch_size} articles",
+            "message": f"Summary generation triggered for up to {batch_size} articles",
             "task_id": task_result.id,
             "current_stats": stats,
-            "batch_size": request.batch_size
+            "batch_size": batch_size
         }
 
     except Exception as e:
