@@ -37,8 +37,8 @@ Edit `src/.env` to change the crawling schedule:
 # Current: Daily at noon
 INTERVAL=0 12 * * SUN-SAT
 
-# Every 6 hours
-INTERVAL=0 */6 * * *
+# Every Hour
+INTERVAL=0 * * * *
 
 # Twice daily (8 AM and 8 PM)
 INTERVAL=0 8,20 * * *

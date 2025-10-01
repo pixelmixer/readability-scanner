@@ -64,7 +64,7 @@ celery_app.conf.update(
         # Trigger source scanning every 6 hours
         'scheduled-source-scan': {
             'task': 'celery_app.tasks.scheduled_scan_trigger_task',
-            'schedule': crontab(minute=0, hour='*/6'),  # Every 6 hours
+            'schedule': crontab(minute=0, hour='*/1'),  # Every 1 hour
             'options': {'queue': 'low', 'priority': 3}
         },
 

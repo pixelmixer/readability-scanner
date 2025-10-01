@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://redis:6379/0"
 
     # Scanning Configuration
-    scan_interval: str = Field(default="0 */6 * * *", description="Cron expression for scanning interval")
+    scan_interval: str = Field(default="0 * * * *", description="Cron expression for scanning interval")
     max_concurrent_scans: int = 5
     request_delay_ms: int = 100
     request_timeout_seconds: int = 30

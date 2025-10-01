@@ -96,7 +96,7 @@ POST /sources/refresh/12345
 
 ### Scheduled Processing (Asynchronous)  
 ```python
-# Celery beat triggers every 6 hours
+# Celery beat triggers every 1 hour
 scheduled_scan_trigger_task()
 
 # Task gets all source URLs
@@ -151,9 +151,6 @@ Access at: `http://localhost:5555`
 - Same API response formats
 - Same Docker service architecture
 
-### Legacy Node.js Service
-The old Node.js service (`proxy-scanner`) still runs for backward compatibility but should be phased out as clients migrate to the new Python service endpoints.
-
 ## Performance Benefits
 
 1. **Reduced System Load**: No more simultaneous processing of all sources
@@ -173,7 +170,7 @@ CELERY_BROKER_URL=redis://redis:6379/0
 CELERY_RESULT_BACKEND=redis://redis:6379/0
 
 # Scanning Configuration
-SCAN_INTERVAL=0 */6 * * *  # Every 6 hours
+SCAN_INTERVAL=0 * * * *  # Every 1 hour
 MAX_CONCURRENT_SCANS=5     # Concurrent scan limit
 ```
 

@@ -90,7 +90,7 @@ Configuration is managed through environment variables and the `config.py` file:
 
 ```python
 # Key settings
-SCAN_INTERVAL=0 */6 * * *      # Cron expression for scanning
+SCAN_INTERVAL=0 * * * *      # Cron expression for scanning
 MAX_CONCURRENT_SCANS=5          # Concurrent RSS scans
 REQUEST_DELAY_MS=100            # Delay between requests
 MONGODB_URL=mongodb://localhost:27017
@@ -195,8 +195,8 @@ The `/health` endpoint provides comprehensive status:
   "database": "connected",
   "scheduler": {
     "running": true,
-    "schedule": "0 */6 * * *",
-    "schedule_human": "Every 6 hours",
+    "schedule": "0 * * * *",
+    "schedule_human": "Every 1 hours",
     "next_run": "2024-01-01T18:00:00"
   }
 }
