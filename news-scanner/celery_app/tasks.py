@@ -686,3 +686,143 @@ def backfill_publication_dates_task(self, batch_size: int = 20) -> Dict[str, Any
             'timestamp': datetime.utcnow().isoformat()
         }
 
+
+@celery_app.task(bind=True, base=CallbackTask, name='celery_app.tasks.cleanup_old_date_fields_task')
+def cleanup_old_date_fields_task(self, batch_size: int = 50) -> Dict[str, Any]:
+    """
+    One-time backfill job to remove old date field names and migrate data.
+
+    This task:
+    1. Finds documents with 'publication date' field but no 'publication_date' field
+    2. Copies 'publication date' to 'publication_date' if the latter is empty
+    3. Removes 'publication date' and 'publishedTime' fields
+    """
+    try:
+        logger.info(f"🧹 Starting cleanup of old date fields (batch size: {batch_size})")
+
+        # Run the async operations in sync context
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            # Ensure database connection
+            loop.run_until_complete(ensure_database_connection())
+
+            # Get the collection directly for this migration
+            collection = article_repository.collection
+
+            # Find documents that have 'publication date' field
+            query = {
+                "publication date": {"$exists": True, "$ne": None}
+            }
+
+            total_count = loop.run_until_complete(collection.count_documents(query))
+            logger.info(f"📊 Total documents with 'publication date' field: {total_count}")
+
+            if total_count == 0:
+                logger.info("No documents need date field cleanup")
+                return {
+                    'success': True,
+                    'documents_processed': 0,
+                    'fields_migrated': 0,
+                    'fields_removed': 0,
+                    'message': 'No documents need date field cleanup',
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+
+            # Process in batches
+            processed_count = 0
+            migrated_count = 0
+            removed_count = 0
+            errors = []
+
+            while processed_count < total_count:
+                # Get batch of documents
+                cursor = collection.find(query).limit(batch_size)
+                docs = loop.run_until_complete(cursor.to_list(length=batch_size))
+
+                if not docs:
+                    break
+
+                logger.info(f"📋 Processing batch: {len(docs)} documents")
+
+                for doc in docs:
+                    try:
+                        url = doc.get('url', 'unknown')
+                        update_operations = {}
+                        fields_to_remove = []
+
+                        # Check if we need to migrate 'publication date' to 'publication_date'
+                        old_pub_date = doc.get('publication date')
+                        new_pub_date = doc.get('publication_date')
+
+                        if old_pub_date and not new_pub_date:
+                            # Copy 'publication date' to 'publication_date'
+                            update_operations['publication_date'] = old_pub_date
+                            migrated_count += 1
+                            logger.debug(f"✅ Migrated publication date for {url}")
+
+                        # Mark old fields for removal
+                        if 'publication date' in doc:
+                            fields_to_remove.append('publication date')
+                            removed_count += 1
+
+                        if 'publishedTime' in doc:
+                            fields_to_remove.append('publishedTime')
+                            removed_count += 1
+
+                        # Perform the update
+                        if update_operations or fields_to_remove:
+                            # Add fields to remove using $unset
+                            if fields_to_remove:
+                                update_operations['$unset'] = {field: "" for field in fields_to_remove}
+
+                            # Use $set for new fields, $unset for removal
+                            if '$unset' in update_operations:
+                                unset_fields = update_operations.pop('$unset')
+                                loop.run_until_complete(collection.update_one(
+                                    {"_id": doc['_id']},
+                                    {
+                                        "$set": update_operations,
+                                        "$unset": unset_fields
+                                    }
+                                ))
+                            else:
+                                loop.run_until_complete(collection.update_one(
+                                    {"_id": doc['_id']},
+                                    {"$set": update_operations}
+                                ))
+
+                        processed_count += 1
+
+                    except Exception as e:
+                        error_msg = f"Error processing document {doc.get('url', 'unknown')}: {e}"
+                        logger.error(error_msg)
+                        errors.append(error_msg)
+                        processed_count += 1
+
+                logger.info(f"📈 Progress: {processed_count}/{total_count} documents processed")
+
+            logger.info(f"✅ Date field cleanup completed: {migrated_count} fields migrated, {removed_count} fields removed")
+
+            return {
+                'success': True,
+                'documents_processed': processed_count,
+                'fields_migrated': migrated_count,
+                'fields_removed': removed_count,
+                'errors': errors[:10],  # Limit errors to first 10
+                'error_count': len(errors),
+                'timestamp': datetime.utcnow().isoformat()
+            }
+
+        finally:
+            loop.close()
+
+    except Exception as exc:
+        logger.error(f"💥 Date field cleanup failed: {exc}")
+        return {
+            'success': False,
+            'error': str(exc),
+            'timestamp': datetime.utcnow().isoformat()
+        }
+

@@ -9,6 +9,7 @@ from urllib.parse import urlparse
 from scanner.content_extractor import content_extractor, ContentExtractionError
 from readability.analyzer import analyzer
 from database.articles import article_repository
+from celery_app.tasks import cleanup_old_date_fields_task
 from datetime import datetime
 import aiohttp
 
@@ -149,3 +150,42 @@ async def test_scan_service():
         },
         "example": "/scan?url=https://example.com/news-article"
     }
+
+
+@router.post("/cleanup-date-fields")
+async def cleanup_old_date_fields(batch_size: int = Query(50, description="Number of documents to process per batch")):
+    """
+    One-time cleanup task to remove old date field names and migrate data.
+
+    This endpoint triggers a Celery task that:
+    1. Finds documents with 'publication date' field but no 'publication_date' field
+    2. Copies 'publication date' to 'publication_date' if the latter is empty
+    3. Removes 'publication date' and 'publishedTime' fields
+
+    Args:
+        batch_size: Number of documents to process per batch (default: 50)
+
+    Returns:
+        Task information and status
+    """
+    try:
+        logger.info(f"🧹 Starting date field cleanup task (batch size: {batch_size})")
+
+        # Queue the cleanup task
+        task = cleanup_old_date_fields_task.delay(batch_size)
+
+        return {
+            "success": True,
+            "message": "Date field cleanup task queued successfully",
+            "task_id": task.id,
+            "batch_size": batch_size,
+            "status": "queued",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+
+    except Exception as e:
+        logger.error(f"Error queuing cleanup task: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to queue cleanup task: {str(e)}"
+        )

@@ -240,7 +240,7 @@ def export():
     """Export articles from specific date range with metadata"""
     result = collection.aggregate([
         {'$match': {
-            'publication date': {
+            'publication_date': {
                 '$gte': datetime(2021, 3, 29, 4, 0, 0, tzinfo=timezone.utc),
                 '$lte': datetime(2021, 4, 5, 3, 59, 59, tzinfo=timezone.utc)
             },

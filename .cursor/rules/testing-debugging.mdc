@@ -60,8 +60,8 @@ db.documents.aggregate([
         _id: null,
         totalArticles: { $sum: 1 },
         avgFlesch: { $avg: "$Flesch" },
-        minDate: { $min: "$publication date" },
-        maxDate: { $max: "$publication date" }
+        minDate: { $min: "$publication_date" },
+        maxDate: { $max: "$publication_date" }
     }}
 ]);
 

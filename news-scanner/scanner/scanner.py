@@ -184,7 +184,7 @@ class ArticleScanner:
                     # Enhance with article metadata
                     content_data.update({
                         'title': article.get('title', ''),
-                        'publication date': article.get('publication_date'),
+                        'publication_date': article.get('publication_date'),  # Use underscore version consistently
                         'origin': scan_result.source_url,
                         'Host': urlparse(article_url).hostname
                     })

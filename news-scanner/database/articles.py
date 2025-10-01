@@ -34,9 +34,7 @@ class ArticleRepository:
             # Convert list to string representation
             doc["Dale Chall: Grade"] = str(doc["Dale Chall: Grade"]).replace("[", "").replace("]", "")
 
-        # Map 'publication_date' field to 'publication date' for Pydantic model compatibility
-        if "publication_date" in doc and "publication date" not in doc:
-            doc["publication date"] = doc["publication_date"]
+        # Note: We now use 'publication_date' consistently, no field mapping needed
 
         # Ensure publication_date is a proper datetime object for consistent sorting
         if "publication_date" in doc and doc["publication_date"] is not None:
@@ -71,7 +69,7 @@ class ArticleRepository:
             await self.collection.create_index("origin")
 
             # Index on publication date for time-based queries
-            await self.collection.create_index("publication date")
+            await self.collection.create_index("publication_date")
 
             # Index on host for hostname-based aggregations
             await self.collection.create_index("Host")
@@ -79,7 +77,7 @@ class ArticleRepository:
             # Compound index for common queries
             await self.collection.create_index([
                 ("origin", ASCENDING),
-                ("publication date", DESCENDING)
+                ("publication_date", DESCENDING)
             ])
 
             logger.info("Article collection indexes created successfully")
@@ -182,7 +180,7 @@ class ArticleRepository:
         try:
             doc = await self.collection.find_one(
                 {"origin": origin},
-                sort=[("publication date", DESCENDING)]
+                sort=[("publication_date", DESCENDING)]
             )
             if doc:
                 doc = self._clean_article_data(doc)
@@ -201,7 +199,7 @@ class ArticleRepository:
         """Get articles within a date range, optionally filtered by origin."""
         try:
             query = {
-                "publication date": {
+                "publication_date": {
                     "$gte": start_date,
                     "$lte": end_date
                 }
@@ -210,7 +208,7 @@ class ArticleRepository:
             if origin:
                 query["origin"] = origin
 
-            cursor = self.collection.find(query).sort("publication date", DESCENDING)
+            cursor = self.collection.find(query).sort("publication_date", DESCENDING)
             docs = await cursor.to_list(length=None)  # Get all matching documents
             return [Article(**doc) for doc in docs]
 
@@ -238,7 +236,7 @@ class ArticleRepository:
             }
 
             if start_date and end_date:
-                match_stage["publication date"] = {
+                match_stage["publication_date"] = {
                     "$gte": start_date,
                     "$lte": end_date
                 }

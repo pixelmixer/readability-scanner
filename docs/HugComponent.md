@@ -139,7 +139,7 @@ numpy<2.0     # Numerical computing
 # Filter by date and source validity
 {
     '$match': {
-        'publication date': {'$gte': start_date, '$lte': end_date},
+        'publication_date': {'$gte': start_date, '$lte': end_date},
         'origin': {'$ne': None}
     }
 }

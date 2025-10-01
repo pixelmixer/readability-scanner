@@ -151,7 +151,7 @@ Crawltest/
   title: "Article Title",         // Article headline
   content: "...",                 // Extracted content
   "Host": "apnews.com",           // News source domain
-  "publication date": Date,        // When published
+  "publication_date": Date,        // When published
   "origin": "https://rss-url",    // RSS feed source
   
   // Text Statistics
