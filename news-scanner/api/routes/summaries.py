@@ -15,7 +15,9 @@ from celery_app.tasks import (
     backfill_publication_dates_task,
     generate_article_summary_task,
     process_summary_backlog_task,
-    scheduled_scan_trigger_task
+    scheduled_scan_trigger_task,
+    reddit_backfill_task,
+    reddit_backfill_stats_task
 )
 from celery_app.queue_manager import queue_manager
 
@@ -370,6 +372,81 @@ async def trigger_backlog_processing(batch_size: int = Form(10)):
 
     except Exception as e:
         logger.error(f"Error triggering backlog processing: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/jobs/reddit-backfill")
+async def trigger_reddit_backfill(batch_size: int = Form(50), skip: int = Form(0)):
+    """Manually trigger Reddit article URL backfill processing."""
+    try:
+        # Trigger Reddit backfill task
+        task_result = reddit_backfill_task.apply_async(
+            args=[batch_size, skip],
+            queue='low',
+            priority=2
+        )
+
+        return {
+            "success": True,
+            "message": f"Reddit backfill triggered (batch size: {batch_size}, skip: {skip})",
+            "task_id": task_result.id,
+            "job_type": "reddit_backfill",
+            "batch_size": batch_size,
+            "skip": skip
+        }
+
+    except Exception as e:
+        logger.error(f"Error triggering Reddit backfill: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/jobs/reddit-stats")
+async def get_reddit_backfill_stats():
+    """Get Reddit article statistics for backfill planning."""
+    try:
+        # Ensure database connection
+        if not db_manager._connected:
+            await db_manager.connect()
+
+        # Get total count of Reddit articles
+        total_count = await article_repository.count_reddit_articles()
+
+        # Get a sample of Reddit articles to analyze
+        sample_articles = await article_repository.get_reddit_articles(limit=100)
+
+        # Analyze URL patterns
+        reddit_urls = 0
+        external_urls = 0
+
+        for article in sample_articles:
+            if 'reddit.com' in str(article.url).lower():
+                reddit_urls += 1
+            else:
+                external_urls += 1
+
+        logger.info(f"📈 Reddit backfill stats: {total_count} total articles, {reddit_urls} Reddit URLs, {external_urls} external URLs in sample")
+
+        result = {
+            'success': True,
+            'total_reddit_articles': total_count,
+            'sample_size': len(sample_articles),
+            'reddit_urls_in_sample': reddit_urls,
+            'external_urls_in_sample': external_urls,
+            'estimated_updates_needed': reddit_urls,  # Rough estimate
+            'timestamp': datetime.utcnow().isoformat()
+        }
+
+        if result.get('success'):
+            return {
+                "success": True,
+                "stats": result,
+                "message": "Reddit statistics retrieved successfully"
+            }
+        else:
+            raise HTTPException(status_code=500, detail=result.get('error', 'Failed to get Reddit stats'))
+
+    except Exception as e:
+        logger.error(f"Error getting Reddit stats: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

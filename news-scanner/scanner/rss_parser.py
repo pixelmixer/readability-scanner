@@ -29,12 +29,13 @@ class RSSParser:
         """Create a requests session with retry strategy."""
         session = requests.Session()
 
-        # Configure retry strategy
+        # Configure retry strategy with longer delays for Reddit
         retry_strategy = Retry(
-            total=3,
+            total=5,
             status_forcelist=[429, 500, 502, 503, 504],
             allowed_methods=["HEAD", "GET", "OPTIONS"],
-            backoff_factor=1
+            backoff_factor=2,  # Exponential backoff: 1s, 2s, 4s, 8s, 16s
+            respect_retry_after_header=True  # Respect Retry-After header
         )
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -125,8 +126,8 @@ class RSSParser:
             Dictionary with article data or None if invalid
         """
         try:
-            # Extract article URL
-            article_url = getattr(entry, 'link', None)
+            # Extract article URL - special handling for Reddit feeds
+            article_url = self._extract_article_url(entry, feed_url)
             if not article_url:
                 self.logger.warning("RSS entry missing link, skipping")
                 return None
@@ -202,6 +203,90 @@ class RSSParser:
         except Exception as e:
             self.logger.warning(f"Error parsing RSS entry: {e}")
             return None
+
+    def _extract_article_url(self, entry: Any, feed_url: str) -> Optional[str]:
+        """
+        Extract article URL with special handling for Reddit feeds.
+
+        For Reddit feeds, the actual article URL is embedded in the content field
+        as an HTML link, not in the standard link field.
+
+        Args:
+            entry: RSS entry from feedparser
+            feed_url: Original feed URL for reference
+
+        Returns:
+            Article URL or None if not found
+        """
+        # Check if this is a Reddit feed
+        is_reddit_feed = 'reddit.com' in feed_url.lower()
+
+        if is_reddit_feed:
+            # For Reddit feeds, extract URL from content field
+            article_url = self._extract_reddit_article_url(entry)
+            if article_url:
+                self.logger.debug(f"Extracted Reddit article URL from content: {article_url}")
+                return article_url
+
+        # Default behavior: use the link field
+        article_url = getattr(entry, 'link', None)
+        if article_url:
+            self.logger.debug(f"Using standard link field: {article_url}")
+            return article_url
+
+        return None
+
+    def _extract_reddit_article_url(self, entry: Any) -> Optional[str]:
+        """
+        Extract the actual article URL from Reddit RSS content field.
+
+        Reddit embeds the real article URL in the content HTML as:
+        <a href="ACTUAL_ARTICLE_URL">[link]</a>
+
+        Args:
+            entry: RSS entry from feedparser
+
+        Returns:
+            Extracted article URL or None if not found
+        """
+        import re
+
+        # Get content from entry
+        content = ''
+        if hasattr(entry, 'content') and entry.content:
+            content = entry.content[0].value if isinstance(entry.content, list) else str(entry.content)
+        elif hasattr(entry, 'summary'):
+            content = entry.summary
+        elif hasattr(entry, 'description'):
+            content = entry.description
+
+        if not content:
+            return None
+
+        # Look for the pattern: <a href="ARTICLE_URL">[link]</a>
+        # Account for HTML entities like &quot; instead of "
+        link_pattern = r'href=(?:&quot;|")([^"]+)(?:&quot;|")[^>]*>\[link\]</a>'
+        match = re.search(link_pattern, content)
+
+        if match:
+            article_url = match.group(1)
+            # Decode HTML entities
+            import html
+            article_url = html.unescape(article_url)
+            return article_url
+
+        # Fallback: look for any external URL that's not reddit.com
+        # This is more aggressive and might catch other patterns
+        url_pattern = r'href="(https?://[^"]*(?<!reddit\.com)[^"]*)"'
+        matches = re.findall(url_pattern, content)
+
+        for url in matches:
+            # Skip Reddit URLs and common Reddit domains
+            if not any(domain in url.lower() for domain in ['reddit.com', 'redd.it']):
+                import html
+                return html.unescape(url)
+
+        return None
 
     def _parse_feed_date(self, date_string: str) -> Optional[datetime]:
         """

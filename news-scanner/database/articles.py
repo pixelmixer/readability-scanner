@@ -552,6 +552,86 @@ class ArticleRepository:
             logger.error(f"Error getting summary statistics: {e}")
             return {"total_articles": 0, "status_breakdown": {}, "summary_coverage": 0}
 
+    async def get_reddit_articles(self, limit: Optional[int] = None, skip: int = 0) -> List[Article]:
+        """
+        Get articles from Reddit sources that need URL reprocessing.
+
+        Args:
+            limit: Maximum number of articles to return
+            skip: Number of articles to skip (for pagination)
+
+        Returns:
+            List of Reddit articles
+        """
+        try:
+            # Query for articles from Reddit sources
+            query = {
+                "origin": {"$regex": "reddit\\.com", "$options": "i"}
+            }
+
+            cursor = self.collection.find(query).sort("publication_date", DESCENDING)
+
+            if skip > 0:
+                cursor = cursor.skip(skip)
+            if limit:
+                cursor = cursor.limit(limit)
+
+            docs = await cursor.to_list(length=None)
+
+            # Clean and convert to Article objects
+            articles = []
+            for doc in docs:
+                doc = self._clean_article_data(doc)
+                articles.append(Article(**doc))
+
+            logger.info(f"Found {len(articles)} Reddit articles (limit={limit}, skip={skip})")
+            return articles
+
+        except Exception as e:
+            logger.error(f"Error getting Reddit articles: {e}")
+            return []
+
+    async def count_reddit_articles(self) -> int:
+        """Count total number of Reddit articles."""
+        try:
+            query = {
+                "origin": {"$regex": "reddit\\.com", "$options": "i"}
+            }
+            count = await self.collection.count_documents(query)
+            logger.info(f"Total Reddit articles: {count}")
+            return count
+        except Exception as e:
+            logger.error(f"Error counting Reddit articles: {e}")
+            return 0
+
+    async def update_article_url(self, old_url: str, new_url: str) -> bool:
+        """
+        Update an article's URL.
+
+        Args:
+            old_url: Current article URL
+            new_url: New article URL
+
+        Returns:
+            True if update was successful, False otherwise
+        """
+        try:
+            result = await self.collection.update_one(
+                {"url": old_url},
+                {"$set": {"url": new_url}}
+            )
+
+            if result.modified_count > 0:
+                logger.info(f"Updated article URL: {old_url} -> {new_url}")
+                return True
+            else:
+                logger.warning(f"No article found with URL: {old_url}")
+                return False
+
+        except Exception as e:
+            logger.error(f"Error updating article URL {old_url}: {e}")
+            return False
+
 
 # Global repository instance
 article_repository = ArticleRepository()

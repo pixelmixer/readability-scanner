@@ -36,6 +36,8 @@ celery_app.conf.update(
         'celery_app.tasks.scheduled_scan_trigger_task': {'queue': 'low'},
         'celery_app.tasks.cleanup_old_date_fields_task': {'queue': 'high'},
         'celery_app.tasks.backfill_publication_dates_task': {'queue': 'low'},
+        'celery_app.tasks.reddit_backfill_task': {'queue': 'low'},
+        'celery_app.tasks.reddit_backfill_stats_task': {'queue': 'low'},
     },
 
     # Task priority settings
