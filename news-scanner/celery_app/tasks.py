@@ -693,8 +693,10 @@ def cleanup_old_date_fields_task(self, batch_size: int = 50) -> Dict[str, Any]:
     One-time backfill job to remove old date field names and migrate data.
 
     This task:
-    1. Finds documents with 'publication date' field but no 'publication_date' field
-    2. Copies 'publication date' to 'publication_date' if the latter is empty
+    1. Finds documents with 'publication date' field OR 'publishedTime' field
+    2. Migrates date data to 'publication_date' field with priority:
+       - 'publication date' (if exists and 'publication_date' is empty)
+       - 'publishedTime' (if exists and no other date field exists)
     3. Removes 'publication date' and 'publishedTime' fields
     """
     try:
@@ -711,13 +713,16 @@ def cleanup_old_date_fields_task(self, batch_size: int = 50) -> Dict[str, Any]:
             # Get the collection directly for this migration
             collection = article_repository.collection
 
-            # Find documents that have 'publication date' field
+            # Find documents that have 'publication date' field OR 'publishedTime' field (including null values)
             query = {
-                "publication date": {"$exists": True, "$ne": None}
+                "$or": [
+                    {"publication date": {"$exists": True}},
+                    {"publishedTime": {"$exists": True}}
+                ]
             }
 
             total_count = loop.run_until_complete(collection.count_documents(query))
-            logger.info(f"📊 Total documents with 'publication date' field: {total_count}")
+            logger.info(f"📊 Total documents with 'publication date' or 'publishedTime' field: {total_count}")
 
             if total_count == 0:
                 logger.info("No documents need date field cleanup")
@@ -754,13 +759,26 @@ def cleanup_old_date_fields_task(self, batch_size: int = 50) -> Dict[str, Any]:
 
                         # Check if we need to migrate 'publication date' to 'publication_date'
                         old_pub_date = doc.get('publication date')
+                        published_time = doc.get('publishedTime')
                         new_pub_date = doc.get('publication_date')
 
+                        # Priority: 'publication date' > 'publishedTime' > existing 'publication_date'
+                        date_to_migrate = None
                         if old_pub_date and not new_pub_date:
-                            # Copy 'publication date' to 'publication_date'
-                            update_operations['publication_date'] = old_pub_date
+                            # Copy 'publication date' to 'publication_date' only if old has value and new doesn't
+                            date_to_migrate = old_pub_date
+                            logger.debug(f"✅ Migrating 'publication date' for {url}")
+                        elif published_time and not new_pub_date and not old_pub_date:
+                            # Copy 'publishedTime' to 'publication_date' if no other date field exists
+                            date_to_migrate = published_time
+                            logger.debug(f"✅ Migrating 'publishedTime' for {url}")
+                        elif old_pub_date is None and new_pub_date:
+                            # Old field is null but new field has value - just remove old field
+                            logger.debug(f"✅ Old publication date field is null, keeping new field for {url}")
+
+                        if date_to_migrate:
+                            update_operations['publication_date'] = date_to_migrate
                             migrated_count += 1
-                            logger.debug(f"✅ Migrated publication date for {url}")
 
                         # Mark old fields for removal
                         if 'publication date' in doc:
@@ -803,7 +821,7 @@ def cleanup_old_date_fields_task(self, batch_size: int = 50) -> Dict[str, Any]:
 
                 logger.info(f"📈 Progress: {processed_count}/{total_count} documents processed")
 
-            logger.info(f"✅ Date field cleanup completed: {migrated_count} fields migrated, {removed_count} fields removed")
+            logger.info(f"✅ Date field cleanup completed: {migrated_count} date fields migrated, {removed_count} old fields removed")
 
             return {
                 'success': True,
