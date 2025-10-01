@@ -256,8 +256,9 @@ class ArticleScanner:
             cleaned_content = analyzer.clean_html_content(content_data['content'])
             content_data['Cleaned Data'] = cleaned_content
 
-            # Add analysis timestamp
-            content_data['date'] = datetime.now()
+            # Add analysis timestamp (UTC)
+            from datetime import timezone
+            content_data['date'] = datetime.now(timezone.utc)
 
             # Save to database
             success = await article_repository.upsert_article(content_data)

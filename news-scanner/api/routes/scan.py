@@ -112,12 +112,13 @@ async def process_and_save_response(content_data: dict) -> str:
         cleaned_content = analyzer.clean_html_content(content)
 
         # Merge all data
+        from datetime import timezone
         article_data = {
             **content_data,
             **readability_metrics,
             'Cleaned Data': cleaned_content,
             'Host': urlparse(url).hostname if url else None,
-            'date': datetime.now()
+            'date': datetime.now(timezone.utc)
         }
 
         # Save to database

@@ -34,7 +34,6 @@ celery_app.conf.update(
         'celery_app.tasks.scan_single_source_task': {'queue': 'normal'},
         'celery_app.tasks.scan_article_task': {'queue': 'normal'},
         'celery_app.tasks.scheduled_scan_trigger_task': {'queue': 'low'},
-        'celery_app.tasks.cleanup_old_articles_task': {'queue': 'low'},
     },
 
     # Task priority settings
@@ -65,12 +64,6 @@ celery_app.conf.update(
             'options': {'queue': 'low', 'priority': 3}
         },
 
-        # Clean up old articles weekly
-        'cleanup-old-articles': {
-            'task': 'celery_app.tasks.cleanup_old_articles_task',
-            'schedule': crontab(minute=0, hour=2, day_of_week=0),  # Sunday 2 AM
-            'options': {'queue': 'low', 'priority': 1}
-        },
 
         # Process summary backlog every 30 minutes
         'process-summary-backlog': {

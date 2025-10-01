@@ -18,6 +18,7 @@ from scanner.scanner import scan_single_source
 from database.sources import source_repository
 from database.articles import article_repository
 from database.connection import db_manager
+from services.date_extraction_service import date_extraction_service
 from services.summary_service import summary_service
 
 logger = logging.getLogger(__name__)
@@ -284,65 +285,6 @@ def scheduled_scan_trigger_task(self) -> Dict[str, Any]:
 
     except Exception as exc:
         logger.error(f"💥 Scheduled scan trigger failed: {exc}")
-        return {
-            'success': False,
-            'error': str(exc),
-            'timestamp': datetime.utcnow().isoformat()
-        }
-
-
-@celery_app.task(bind=True, base=CallbackTask, name='celery_app.tasks.cleanup_old_articles_task')
-def cleanup_old_articles_task(self, days_to_keep: int = 30) -> Dict[str, Any]:
-    """
-    Low priority maintenance task to clean up old articles.
-    Runs weekly to prevent database bloat.
-    """
-    try:
-        logger.info(f"🧹 Starting cleanup of articles older than {days_to_keep} days")
-
-        cutoff_date = datetime.utcnow() - timedelta(days=days_to_keep)
-
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-
-        try:
-            # Ensure database connection
-            loop.run_until_complete(ensure_database_connection())
-
-            # Get count before deletion
-            old_count = loop.run_until_complete(
-                article_repository.count_articles_before_date(cutoff_date)
-            )
-
-            if old_count == 0:
-                logger.info("No old articles found for cleanup")
-                return {
-                    'success': True,
-                    'articles_deleted': 0,
-                    'message': 'No articles to clean up',
-                    'timestamp': datetime.utcnow().isoformat()
-                }
-
-            # Delete old articles
-            deleted_count = loop.run_until_complete(
-                article_repository.delete_articles_before_date(cutoff_date)
-            )
-
-            logger.info(f"✅ Cleanup completed: {deleted_count} articles deleted")
-
-            return {
-                'success': True,
-                'articles_deleted': deleted_count,
-                'cutoff_date': cutoff_date.isoformat(),
-                'days_to_keep': days_to_keep,
-                'timestamp': datetime.utcnow().isoformat()
-            }
-
-        finally:
-            loop.close()
-
-    except Exception as exc:
-        logger.error(f"💥 Cleanup task failed: {exc}")
         return {
             'success': False,
             'error': str(exc),
@@ -622,6 +564,122 @@ def manual_summary_trigger_task(self, batch_size: int = 50) -> Dict[str, Any]:
 
     except Exception as exc:
         logger.error(f"💥 Manual summary trigger failed: {exc}")
+        return {
+            'success': False,
+            'error': str(exc),
+            'timestamp': datetime.utcnow().isoformat()
+        }
+
+
+@celery_app.task(bind=True, base=CallbackTask, name='celery_app.tasks.backfill_publication_dates_task')
+def backfill_publication_dates_task(self, batch_size: int = 20) -> Dict[str, Any]:
+    """
+    Backfill missing publication dates for existing articles.
+    This task processes articles that don't have publication dates and tries to extract them.
+    """
+    try:
+        logger.info(f"📅 Starting publication date backfill (batch size: {batch_size})")
+
+        # Run the async operations in sync context
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+
+        try:
+            # Ensure database connection
+            loop.run_until_complete(ensure_database_connection())
+
+            # Get count of articles without publication dates
+            total_count = loop.run_until_complete(
+                article_repository.count_articles_without_publication_date()
+            )
+            logger.info(f"📊 Total articles without publication dates: {total_count}")
+
+            if total_count == 0:
+                logger.info("No articles need publication date backfill")
+                return {
+                    'success': True,
+                    'articles_processed': 0,
+                    'dates_found': 0,
+                    'message': 'No articles need publication date backfill',
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+
+            # Get articles without publication dates
+            articles = loop.run_until_complete(
+                article_repository.get_articles_without_publication_date(limit=batch_size)
+            )
+            logger.info(f"📋 Retrieved {len(articles)} articles for date extraction")
+
+            if not articles:
+                logger.info("No articles found for date extraction")
+                return {
+                    'success': True,
+                    'articles_processed': 0,
+                    'dates_found': 0,
+                    'message': 'No articles found for processing',
+                    'timestamp': datetime.utcnow().isoformat()
+                }
+
+            # Process each article
+            dates_found = 0
+            processed_count = 0
+            errors = []
+
+            for article in articles:
+                try:
+                    # Convert article to dict for processing
+                    article_data = {
+                        'url': str(article.url),
+                        'content': article.content,
+                        'cleaned_data': article.cleaned_data,
+                        'publication_date': article.publication_date
+                    }
+
+                    # Extract publication date
+                    extracted_date = loop.run_until_complete(
+                        date_extraction_service.extract_publication_date(article_data)
+                    )
+
+                    if extracted_date:
+                        # Update the article with the extracted date
+                        success = loop.run_until_complete(
+                            article_repository.update_article_publication_date(
+                                str(article.url),
+                                extracted_date
+                            )
+                        )
+
+                        if success:
+                            dates_found += 1
+                            logger.debug(f"✅ Updated publication date for {article.url}: {extracted_date}")
+                        else:
+                            errors.append(f"Failed to update date for {article.url}")
+                    else:
+                        logger.debug(f"❌ No publication date found for {article.url}")
+
+                    processed_count += 1
+
+                except Exception as e:
+                    error_msg = f"Error processing article {article.url}: {e}"
+                    logger.error(error_msg)
+                    errors.append(error_msg)
+
+            logger.info(f"✅ Publication date backfill completed: {dates_found}/{processed_count} dates found")
+
+            return {
+                'success': True,
+                'articles_processed': processed_count,
+                'dates_found': dates_found,
+                'errors': errors[:10],  # Limit errors to first 10
+                'error_count': len(errors),
+                'timestamp': datetime.utcnow().isoformat()
+            }
+
+        finally:
+            loop.close()
+
+    except Exception as exc:
+        logger.error(f"💥 Publication date backfill failed: {exc}")
         return {
             'success': False,
             'error': str(exc),

@@ -142,6 +142,77 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Job Management Section -->
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-tasks"></i> Job Management
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Queue Status -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <h6>Queue Status</h6>
+                            <div id="queue-status" class="alert alert-info">
+                                <i class="fas fa-spinner fa-spin"></i> Loading queue status...
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Job Triggers -->
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6>RSS & Content Jobs</h6>
+                            <div class="btn-group-vertical w-100 mb-3" role="group">
+                                <button type="button" class="btn btn-outline-primary" id="trigger-scan-btn">
+                                    <i class="fas fa-rss"></i> Scan RSS Sources
+                                </button>
+                                <button type="button" class="btn btn-outline-info" id="trigger-backlog-btn">
+                                    <i class="fas fa-clock"></i> Process Summary Backlog
+                                </button>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6>Data Processing Jobs</h6>
+                            <div class="btn-group-vertical w-100 mb-3" role="group">
+                                <button type="button" class="btn btn-outline-success" id="trigger-summary-manual-btn">
+                                    <i class="fas fa-file-text"></i> Generate Summaries
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="trigger-dates-btn">
+                                    <i class="fas fa-calendar"></i> Backfill Publication Dates
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Job History -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <h6>Recent Jobs</h6>
+                            <div id="job-history" class="table-responsive">
+                                <table class="table table-sm">
+                                    <thead>
+                                        <tr>
+                                            <th>Job Type</th>
+                                            <th>Status</th>
+                                            <th>Started</th>
+                                            <th>Duration</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="job-history-body">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">No recent jobs</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -231,19 +302,6 @@ function loadSummaryStats() {
         });
 }
 
-function loadQueueStatus() {
-    $.get('/summaries/queue/status')
-        .done(function(data) {
-            if (data.success && data.queue_stats.queues) {
-                $('#high-queue').text(data.queue_stats.queues.high?.active || 0);
-                $('#normal-queue').text(data.queue_stats.queues.normal?.active || 0);
-                $('#low-queue').text(data.queue_stats.queues.low?.active || 0);
-            }
-        })
-        .fail(function(xhr) {
-            console.error('Error loading queue status:', xhr);
-        });
-}
 
 function loadArticlesWithoutSummaries() {
     const loadingDiv = $('#articles-loading');
@@ -347,6 +405,193 @@ function triggerSingleSummary(articleUrl) {
             showToast('Summary Generation Failed', 'Error triggering summary generation. Please try again.', 'error');
         });
 }
+
+// Job Management Functions
+let jobHistory = [];
+
+function loadQueueStatus() {
+    $.get('/summaries/jobs/queue-status')
+        .done(function(data) {
+            if (data.success) {
+                let statusHtml = `
+                    <div class="row">
+                        <div class="col-md-3">
+                            <strong>Active Tasks:</strong> ${data.total_active}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Scheduled:</strong> ${data.total_scheduled}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Reserved:</strong> ${data.total_reserved}
+                        </div>
+                        <div class="col-md-3">
+                            <strong>Workers:</strong> ${data.workers.length}
+                        </div>
+                    </div>
+                `;
+
+                if (Object.keys(data.queue_stats).length > 0) {
+                    statusHtml += '<div class="mt-2"><strong>Queue Breakdown:</strong><br>';
+                    for (const [queue, count] of Object.entries(data.queue_stats)) {
+                        statusHtml += `<span class="badge badge-secondary mr-1">${queue}: ${count}</span>`;
+                    }
+                    statusHtml += '</div>';
+                }
+
+                $('#queue-status').html(statusHtml);
+            }
+        })
+        .fail(function(xhr) {
+            console.error('Error loading queue status:', xhr);
+            $('#queue-status').html('<div class="alert alert-danger">Failed to load queue status</div>');
+        });
+}
+
+function addJobToHistory(jobType, taskId, status = 'PENDING') {
+    const job = {
+        id: taskId,
+        type: jobType,
+        status: status,
+        started: new Date().toLocaleTimeString(),
+        duration: '-'
+    };
+
+    jobHistory.unshift(job);
+    if (jobHistory.length > 10) {
+        jobHistory = jobHistory.slice(0, 10);
+    }
+
+    updateJobHistoryTable();
+}
+
+function updateJobHistoryTable() {
+    const tbody = $('#job-history-body');
+
+    if (jobHistory.length === 0) {
+        tbody.html('<tr><td colspan="5" class="text-center text-muted">No recent jobs</td></tr>');
+        return;
+    }
+
+    let html = '';
+    jobHistory.forEach(function(job) {
+        const statusBadge = getStatusBadge(job.status);
+        html += `
+            <tr>
+                <td>${job.type}</td>
+                <td>${statusBadge}</td>
+                <td>${job.started}</td>
+                <td>${job.duration}</td>
+                <td>
+                    <button class="btn btn-sm btn-outline-info" onclick="checkJobStatus('${job.id}')">
+                        <i class="fas fa-eye"></i> Check
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    tbody.html(html);
+}
+
+function getStatusBadge(status) {
+    switch(status) {
+        case 'PENDING': return '<span class="badge badge-warning">Pending</span>';
+        case 'PROGRESS': return '<span class="badge badge-info">Running</span>';
+        case 'SUCCESS': return '<span class="badge badge-success">Success</span>';
+        case 'FAILURE': return '<span class="badge badge-danger">Failed</span>';
+        default: return '<span class="badge badge-secondary">' + status + '</span>';
+    }
+}
+
+function checkJobStatus(taskId) {
+    $.get(`/summaries/jobs/status/${taskId}`)
+        .done(function(data) {
+            if (data.success) {
+                const status = data.status;
+                showToast('Job Status', `Status: ${status.status}`, 'info');
+
+                // Update job in history
+                const job = jobHistory.find(j => j.id === taskId);
+                if (job) {
+                    job.status = status.state;
+                    if (status.state === 'SUCCESS' && status.result) {
+                        job.duration = 'Completed';
+                    }
+                    updateJobHistoryTable();
+                }
+            }
+        })
+        .fail(function(xhr) {
+            console.error('Error checking job status:', xhr);
+            showToast('Error', 'Failed to check job status', 'error');
+        });
+}
+
+function triggerJob(jobType, endpoint, data = {}) {
+    const button = $(`#trigger-${jobType}-btn`);
+    const originalText = button.html();
+
+    button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Starting...');
+
+    $.post(endpoint, data)
+        .done(function(response) {
+            if (response.success) {
+                addJobToHistory(jobType, response.task_id, 'PENDING');
+                showToast('Job Started', response.message, 'success');
+                loadQueueStatus();
+            } else {
+                showToast('Job Failed', response.detail || 'Unknown error', 'error');
+            }
+        })
+        .fail(function(xhr) {
+            console.error(`Error triggering ${jobType}:`, xhr);
+            showToast('Job Failed', 'Error starting job. Please try again.', 'error');
+        })
+        .always(function() {
+            button.prop('disabled', false).html(originalText);
+        });
+}
+
+// Job trigger event handlers
+$(document).ready(function() {
+    // Load initial data
+    loadSummaryStats();
+    loadQueueStatus();
+    updateJobHistoryTable();
+
+    // Set up event listeners
+    $('#load-articles-btn').click(loadArticlesWithoutSummaries);
+
+    // Job trigger buttons
+    $('#trigger-scan-btn').click(function() {
+        triggerJob('scan', '/summaries/jobs/trigger-scan');
+    });
+
+
+    $('#trigger-backlog-btn').click(function() {
+        const batchSize = prompt('Enter batch size for backlog processing (default: 10):', '10');
+        if (batchSize !== null) {
+            triggerJob('backlog', '/summaries/jobs/trigger-backlog', { batch_size: parseInt(batchSize) || 10 });
+        }
+    });
+
+    $('#trigger-summary-manual-btn').click(function() {
+        const batchSize = prompt('Enter batch size for summary generation (default: 50):', '50');
+        if (batchSize !== null) {
+            triggerJob('summary-manual', '/summaries/trigger', { batch_size: parseInt(batchSize) || 50 });
+        }
+    });
+
+    $('#trigger-dates-btn').click(function() {
+        const batchSize = prompt('Enter batch size for date backfill (default: 20):', '20');
+        if (batchSize !== null) {
+            triggerJob('dates', '/summaries/backfill-dates', { batch_size: parseInt(batchSize) || 20 });
+        }
+    });
+
+    // Auto-refresh queue status every 30 seconds
+    setInterval(loadQueueStatus, 30000);
+});
 
 // Set page logging
 window.pageLogged = true;

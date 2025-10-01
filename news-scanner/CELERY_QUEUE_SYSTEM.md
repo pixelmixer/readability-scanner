@@ -21,7 +21,6 @@ The system uses **Redis** as the message broker with three priority queues:
 | `manual_refresh_source_task` | `high` | Manual UI refresh requests | 2 retries, 30s intervals |
 | `scan_single_source_task` | `normal` | Individual RSS source scans | 3 retries, exponential backoff |
 | `scheduled_scan_trigger_task` | `low` | Distributes scheduled scans over time | No retries |
-| `cleanup_old_articles_task` | `low` | Weekly database maintenance | No retries |
 
 ### Worker Configuration
 

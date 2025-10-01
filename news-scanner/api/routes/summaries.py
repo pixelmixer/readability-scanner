@@ -10,7 +10,13 @@ from pydantic import BaseModel, HttpUrl
 
 from database.articles import article_repository
 from database.connection import db_manager
-from celery_app.tasks import manual_summary_trigger_task, generate_article_summary_task
+from celery_app.tasks import (
+    manual_summary_trigger_task,
+    backfill_publication_dates_task,
+    generate_article_summary_task,
+    process_summary_backlog_task,
+    scheduled_scan_trigger_task
+)
 from celery_app.queue_manager import queue_manager
 
 logger = logging.getLogger(__name__)
@@ -258,5 +264,208 @@ async def get_article_with_summary(article_url: str):
         raise
     except Exception as e:
         logger.error(f"Error getting article with summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/backfill-dates")
+async def trigger_publication_date_backfill(batch_size: int = Form(20)):
+    """Manually trigger publication date backfill for articles missing dates."""
+    try:
+        # Ensure database connection
+        if not db_manager._connected:
+            await db_manager.connect()
+
+        # Get current statistics
+        total_without_dates = await article_repository.count_articles_without_publication_date()
+        total_articles = await article_repository.count_articles()
+
+        # Trigger backfill processing
+        task_result = backfill_publication_dates_task.apply_async(
+            args=[batch_size],
+            queue='normal',
+            priority=5
+        )
+
+        return {
+            "success": True,
+            "message": f"Publication date backfill triggered for up to {batch_size} articles",
+            "task_id": task_result.id,
+            "total_articles": total_articles,
+            "articles_without_dates": total_without_dates,
+            "batch_size": batch_size
+        }
+
+    except Exception as e:
+        logger.error(f"Error triggering publication date backfill: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/date-stats")
+async def get_publication_date_statistics():
+    """Get statistics about publication dates in the database."""
+    try:
+        # Ensure database connection
+        if not db_manager._connected:
+            await db_manager.connect()
+
+        total_articles = await article_repository.count_articles()
+        articles_without_dates = await article_repository.count_articles_without_publication_date()
+        articles_with_dates = total_articles - articles_without_dates
+
+        coverage_percentage = (articles_with_dates / total_articles * 100) if total_articles > 0 else 0
+
+        return {
+            "success": True,
+            "total_articles": total_articles,
+            "articles_with_dates": articles_with_dates,
+            "articles_without_dates": articles_without_dates,
+            "date_coverage": round(coverage_percentage, 1)
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting publication date statistics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/jobs/trigger-scan")
+async def trigger_manual_scan():
+    """Manually trigger RSS source scanning."""
+    try:
+        # Trigger scheduled scan task
+        task_result = scheduled_scan_trigger_task.apply_async(
+            queue='low',
+            priority=3
+        )
+
+        return {
+            "success": True,
+            "message": "RSS source scanning triggered",
+            "task_id": task_result.id,
+            "job_type": "rss_scan"
+        }
+
+    except Exception as e:
+        logger.error(f"Error triggering RSS scan: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/jobs/trigger-backlog")
+async def trigger_backlog_processing(batch_size: int = Form(10)):
+    """Manually trigger summary backlog processing."""
+    try:
+        # Trigger backlog processing
+        task_result = process_summary_backlog_task.apply_async(
+            args=[batch_size],
+            queue='low',
+            priority=2
+        )
+
+        return {
+            "success": True,
+            "message": f"Summary backlog processing triggered (batch size: {batch_size})",
+            "task_id": task_result.id,
+            "job_type": "summary_backlog",
+            "batch_size": batch_size
+        }
+
+    except Exception as e:
+        logger.error(f"Error triggering backlog processing: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/jobs/status/{task_id}")
+async def get_job_status(task_id: str):
+    """Get the status of a specific job."""
+    try:
+        from celery_app.celery_worker import celery_app
+
+        # Get task result
+        result = celery_app.AsyncResult(task_id)
+
+        if result.state == 'PENDING':
+            response = {
+                'state': result.state,
+                'status': 'Task is waiting to be processed...'
+            }
+        elif result.state == 'PROGRESS':
+            response = {
+                'state': result.state,
+                'current': result.info.get('current', 0),
+                'total': result.info.get('total', 1),
+                'status': result.info.get('status', '')
+            }
+        elif result.state == 'SUCCESS':
+            response = {
+                'state': result.state,
+                'result': result.result,
+                'status': 'Task completed successfully'
+            }
+        else:  # FAILURE or other states
+            response = {
+                'state': result.state,
+                'status': str(result.info),
+                'error': str(result.info) if result.state == 'FAILURE' else None
+            }
+
+        return {
+            "success": True,
+            "task_id": task_id,
+            "status": response
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting job status: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/jobs/queue-status")
+async def get_queue_status():
+    """Get current queue status and statistics."""
+    try:
+        from celery_app.celery_worker import celery_app
+
+        # Get queue statistics
+        inspect = celery_app.control.inspect()
+
+        # Get active tasks
+        active_tasks = inspect.active()
+
+        # Get scheduled tasks
+        scheduled_tasks = inspect.scheduled()
+
+        # Get reserved tasks
+        reserved_tasks = inspect.reserved()
+
+        # Count tasks by queue
+        queue_stats = {}
+        total_active = 0
+        total_scheduled = 0
+        total_reserved = 0
+
+        if active_tasks:
+            for worker, tasks in active_tasks.items():
+                queue_name = worker.split('@')[0] if '@' in worker else 'default'
+                queue_stats[queue_name] = queue_stats.get(queue_name, 0) + len(tasks)
+                total_active += len(tasks)
+
+        if scheduled_tasks:
+            for worker, tasks in scheduled_tasks.items():
+                total_scheduled += len(tasks)
+
+        if reserved_tasks:
+            for worker, tasks in reserved_tasks.items():
+                total_reserved += len(tasks)
+
+        return {
+            "success": True,
+            "queue_stats": queue_stats,
+            "total_active": total_active,
+            "total_scheduled": total_scheduled,
+            "total_reserved": total_reserved,
+            "workers": list(active_tasks.keys()) if active_tasks else []
+        }
+
+    except Exception as e:
+        logger.error(f"Error getting queue status: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 

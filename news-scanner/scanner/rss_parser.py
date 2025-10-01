@@ -12,6 +12,7 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from .user_agents import user_agent_rotator
+from utils.date_normalizer import normalize_date
 from config import settings
 
 logger = logging.getLogger(__name__)
@@ -158,8 +159,13 @@ class RSSParser:
                         self.logger.debug(f"Trying to parse date from field '{date_field}': {date_value}")
                         pub_date = self._parse_feed_date(date_value)
                         if pub_date:
-                            self.logger.debug(f"Successfully parsed date from field '{date_field}': {pub_date}")
-                            break
+                            # Normalize to UTC for consistent storage
+                            pub_date = normalize_date(pub_date)
+                            if pub_date:
+                                self.logger.debug(f"Successfully parsed and normalized date from field '{date_field}': {pub_date}")
+                                break
+                            else:
+                                self.logger.debug(f"Failed to normalize date from field '{date_field}': {date_value}")
                         else:
                             self.logger.debug(f"Failed to parse date from field '{date_field}': {date_value}")
 
@@ -185,7 +191,7 @@ class RSSParser:
                 "url": article_url,
                 "title": title,
                 "content": content,
-                "publication_date": pub_date,
+                "publication_date": pub_date,  # Primary date field for sorting
                 "author": author,
                 "tags": tags,
                 "origin": feed_url

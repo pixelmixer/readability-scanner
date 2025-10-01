@@ -13,6 +13,7 @@ from pymongo.errors import DuplicateKeyError
 
 from models.article import Article, ArticleCreate, ArticleUpdate
 from .connection import db_manager
+from utils.date_normalizer import normalize_date, ensure_utc_datetime
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,26 @@ class ArticleRepository:
         if "Dale Chall: Grade" in doc and isinstance(doc["Dale Chall: Grade"], list):
             # Convert list to string representation
             doc["Dale Chall: Grade"] = str(doc["Dale Chall: Grade"]).replace("[", "").replace("]", "")
+
+        # Map 'publication_date' field to 'publication date' for Pydantic model compatibility
+        if "publication_date" in doc and "publication date" not in doc:
+            doc["publication date"] = doc["publication_date"]
+
+        # Ensure publication_date is a proper datetime object for consistent sorting
+        if "publication_date" in doc and doc["publication_date"] is not None:
+            try:
+                from datetime import datetime
+                if isinstance(doc["publication_date"], str):
+                    # Parse string date to datetime
+                    from dateutil import parser
+                    doc["publication_date"] = parser.parse(doc["publication_date"])
+                elif hasattr(doc["publication_date"], 'to_pydatetime'):
+                    # Convert MongoDB datetime to Python datetime
+                    doc["publication_date"] = doc["publication_date"].to_pydatetime()
+            except Exception as e:
+                logger.warning(f"Error parsing publication_date {doc.get('publication_date')}: {e}")
+                # Set to epoch if parsing fails
+                doc["publication_date"] = datetime(1970, 1, 1)
 
         return doc
 
@@ -81,13 +102,22 @@ class ArticleRepository:
             if "url" not in article_data:
                 raise ValueError("Article data must contain 'url' field")
 
-            # Add/update metadata - preserve publication_date if it exists
+            # Normalize and set dates
+            current_time = ensure_utc_datetime(datetime.now())
+
             if "publication_date" not in article_data or article_data["publication_date"] is None:
-                article_data["date"] = datetime.now()
+                # No publication date, use current time
+                article_data["publication_date"] = current_time
             else:
-                # Use publication_date as the primary date, but also set analysis date
-                article_data["date"] = article_data["publication_date"]
-                article_data["analysis_date"] = datetime.now()
+                # Normalize publication date to UTC
+                normalized_pub_date = normalize_date(article_data["publication_date"])
+                if normalized_pub_date:
+                    article_data["publication_date"] = normalized_pub_date
+                    article_data["analysis_date"] = current_time
+                else:
+                    # If normalization fails, use current time
+                    logger.warning(f"Failed to normalize publication_date for {article_data.get('url')}, using current time")
+                    article_data["publication_date"] = current_time
 
             # Extract hostname if not provided
             if "Host" not in article_data and "url" in article_data:
@@ -293,28 +323,6 @@ class ArticleRepository:
             logger.error(f"Error deleting articles by origin {origin}: {e}")
             return 0
 
-    async def count_articles_before_date(self, cutoff_date: datetime) -> int:
-        """Count articles published before a certain date."""
-        try:
-            count = await self.collection.count_documents({
-                "publication date": {"$lt": cutoff_date}
-            })
-            return count
-        except Exception as e:
-            logger.error(f"Error counting old articles: {e}")
-            return 0
-
-    async def delete_articles_before_date(self, cutoff_date: datetime) -> int:
-        """Delete articles published before a certain date."""
-        try:
-            result = await self.collection.delete_many({
-                "publication date": {"$lt": cutoff_date}
-            })
-            logger.info(f"Deleted {result.deleted_count} articles older than {cutoff_date}")
-            return result.deleted_count
-        except Exception as e:
-            logger.error(f"Error deleting old articles: {e}")
-            return 0
 
     async def get_articles_without_summaries(self, limit: int = 100, skip: int = 0) -> List[Article]:
         """Get articles that don't have summaries yet, prioritized by publication date (newest first)."""
@@ -360,30 +368,116 @@ class ArticleRepository:
             return 0
 
     async def get_todays_articles(self, limit: int = 100) -> List[Article]:
-        """Get articles published today, ordered by publication date."""
+        """Get recent articles with valid publication_date, ordered by publication_date (newest first)."""
         try:
             from datetime import datetime, timedelta
 
-            # Get today's date range
-            today = datetime.now().date()
-            start_of_day = datetime.combine(today, datetime.min.time())
-            end_of_day = datetime.combine(today, datetime.max.time())
+            # Get recent articles (last 7 days) that have valid publication_date
+            recent_cutoff = datetime.now() - timedelta(days=7)
 
-            # Use the actual database field name "date" instead of "publication_date"
+            # Use publication_date field for filtering and sorting (matching playground query)
             query = {
-                "date": {
-                    "$gte": start_of_day,
-                    "$lte": end_of_day
+                "publication_date": {
+                    "$exists": True,
+                    "$ne": None,
+                    "$gte": recent_cutoff,
+                    "$type": "date"  # Ensure it's a proper date type
                 }
             }
 
-            cursor = self.collection.find(query).sort("date", -1).limit(limit)
+            # Sort by publication_date in MongoDB (newest first) - no frontend sorting
+            cursor = self.collection.find(query).sort("publication_date", -1).limit(limit)
             docs = await cursor.to_list(length=limit)
-            logger.debug(f"Found {len(docs)} articles for today")
-            return [Article(**self._clean_article_data(doc)) for doc in docs]
+
+            # Convert to Article objects
+            articles = []
+            for doc in docs:
+                try:
+                    # Double-check that the publication_date is valid before including
+                    if doc.get("publication_date") and isinstance(doc["publication_date"], datetime):
+                        article = Article(**self._clean_article_data(doc))
+                        articles.append(article)
+                    else:
+                        logger.debug(f"Skipping article with invalid publication_date: {doc.get('url', 'unknown')}")
+                        continue
+                except Exception as e:
+                    logger.warning(f"Error converting article {doc.get('url', 'unknown')}: {e}")
+                    continue
+
+            logger.debug(f"Found {len(articles)} articles with valid publication_date, sorted by MongoDB")
+            return articles
         except Exception as e:
             logger.error(f"Error getting today's articles: {e}")
             return []
+
+    async def get_articles_without_publication_date(self, limit: int = 100, skip: int = 0) -> List[Article]:
+        """Get articles that don't have publication dates yet."""
+        try:
+            query = {
+                "$or": [
+                    {"publication_date": {"$exists": False}},
+                    {"publication_date": None},
+                    {"publication_date": ""}
+                ]
+            }
+
+            logger.debug(f"Querying articles without publication dates: {query}")
+            cursor = self.collection.find(query).skip(skip).limit(limit)
+            docs = await cursor.to_list(length=limit)
+            logger.debug(f"Found {len(docs)} articles without publication dates")
+            return [Article(**self._clean_article_data(doc)) for doc in docs]
+        except Exception as e:
+            logger.error(f"Error getting articles without publication dates: {e}")
+            return []
+
+    async def count_articles_without_publication_date(self) -> int:
+        """Count articles that don't have publication dates yet."""
+        try:
+            query = {
+                "$or": [
+                    {"publication_date": {"$exists": False}},
+                    {"publication_date": None},
+                    {"publication_date": ""}
+                ]
+            }
+            count = await self.collection.count_documents(query)
+            logger.debug(f"Count query result: {count} articles without publication dates")
+            return count
+        except Exception as e:
+            logger.error(f"Error counting articles without publication dates: {e}")
+            return 0
+
+    async def count_articles(self) -> int:
+        """Count total articles in the database."""
+        try:
+            count = await self.collection.count_documents({})
+            logger.debug(f"Total articles in database: {count}")
+            return count
+        except Exception as e:
+            logger.error(f"Error counting total articles: {e}")
+            return 0
+
+    async def update_article_publication_date(self, url: str, publication_date: datetime) -> bool:
+        """Update an article with publication date information."""
+        try:
+            result = await self.collection.update_one(
+                {"url": url},
+                {
+                    "$set": {
+                        "publication_date": publication_date
+                    }
+                }
+            )
+
+            if result.modified_count > 0:
+                logger.debug(f"Updated publication date for article: {url}")
+                return True
+            else:
+                logger.warning(f"No article found with URL: {url}")
+                return False
+        except Exception as e:
+            logger.error(f"Error updating article publication date for {url}: {e}", exc_info=True)
+            return False
 
     async def update_article_summary(
         self,

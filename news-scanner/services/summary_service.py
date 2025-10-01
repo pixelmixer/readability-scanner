@@ -21,7 +21,7 @@ class SummaryService:
     def __init__(self):
         self.llm_api_url = "http://192.168.86.32:1234/v1/chat/completions"
         self.model = "openai/gpt-oss-20b"
-        self.timeout = 30  # seconds
+        self.timeout = 90  # seconds - increased to handle LLM API delays
         self.max_retries = 3
         self.retry_delay = 5  # seconds
 
