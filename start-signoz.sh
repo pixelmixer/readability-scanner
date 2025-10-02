@@ -17,12 +17,25 @@ echo "📁 Creating SigNoz directories..."
 mkdir -p signoz/data/clickhouse
 mkdir -p signoz/logs
 
-# Start SigNoz services first
-echo "🔧 Starting SigNoz services..."
-docker-compose up -d signoz-clickhouse signoz-otel-collector signoz-query-service signoz-frontend signoz-alertmanager
+# Start ClickHouse first
+echo "🔧 Starting ClickHouse..."
+docker-compose up -d signoz-clickhouse
+
+# Wait for ClickHouse to be ready
+echo "⏳ Waiting for ClickHouse to initialize..."
+sleep 15
+
+# Initialize SigNoz database and tables
+echo "🗄️  Initializing SigNoz database schema..."
+docker exec crawltest-signoz-clickhouse-1 clickhouse-client --query "CREATE DATABASE IF NOT EXISTS signoz_metrics" || echo "Database may already exist"
+docker exec crawltest-signoz-clickhouse-1 clickhouse-client --query "CREATE TABLE IF NOT EXISTS signoz_metrics.distributed_updated_metadata (metric_name String, type String, description String, temporality String, is_monotonic UInt8, unit String, updated_at DateTime DEFAULT now()) ENGINE = MergeTree() ORDER BY metric_name" || echo "Table may already exist"
+
+# Start remaining SigNoz services
+echo "🔧 Starting remaining SigNoz services..."
+docker-compose up -d signoz-otel-collector signoz-query-service signoz-frontend
 
 # Wait for SigNoz to be ready
-echo "⏳ Waiting for SigNoz to initialize (this may take a few minutes)..."
+echo "⏳ Waiting for SigNoz services to initialize (this may take a few minutes)..."
 sleep 30
 
 # Check if SigNoz is ready

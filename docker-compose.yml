@@ -250,6 +250,17 @@ services:
       - readable
     restart: unless-stopped
 
+  signoz-db-init:
+    image: clickhouse/clickhouse-server:23.8.2-alpine
+    volumes:
+      - ./signoz/init-db.sh:/init-db.sh
+    networks:
+      - readable
+    depends_on:
+      - signoz-clickhouse
+    command: ["/bin/bash", "/init-db.sh"]
+    restart: "no"
+
   signoz-query-service:
     image: signoz/query-service
     volumes:
