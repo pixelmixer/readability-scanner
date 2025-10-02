@@ -79,7 +79,7 @@ services:
     ports:
       - "6380:6379"
     volumes:
-      - redis_data:/data
+      - ./redis/data:/data
     restart: unless-stopped
     command: redis-server --appendonly yes
     logging:
@@ -238,7 +238,7 @@ services:
   signoz-clickhouse:
     image: clickhouse/clickhouse-server:23.8.2-alpine
     volumes:
-      - clickhouse_data:/var/lib/clickhouse
+      - ./signoz/clickhouse/data:/var/lib/clickhouse
       - ./signoz/clickhouse-config.xml:/etc/clickhouse-server/config.xml
     ports:
       - "9000:9000"
@@ -265,7 +265,7 @@ services:
     image: signoz/query-service
     volumes:
       - ./signoz/query-service-config.yaml:/root/config/query-service-config.yaml
-      - signoz_data:/var/lib/signoz
+      - ./signoz/data:/var/lib/signoz
     ports:
       - "8080:8080"
     environment:
@@ -293,8 +293,3 @@ services:
 
 networks:
   readable:
-
-volumes:
-  redis_data:
-  clickhouse_data:
-  signoz_data:
