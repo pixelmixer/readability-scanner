@@ -1,0 +1,35 @@
+clickhouse:
+  host: signoz-clickhouse
+  port: 9000
+  database: signoz
+  username: default
+  password: ""
+
+prometheus:
+  config:
+    global:
+      scrape_interval: 15s
+    scrape_configs:
+      - job_name: 'otel-collector'
+        scrape_interval: 10s
+        static_configs:
+          - targets: ['signoz-otel-collector:8889']
+
+jaeger:
+  host: signoz-clickhouse
+  port: 9000
+  database: signoz
+  username: default
+  password: ""
+
+alerts:
+  enabled: true
+  alertmanager_url: http://signoz-alertmanager:9093
+
+dashboards:
+  enabled: true
+
+features:
+  enable_metrics: true
+  enable_traces: true
+  enable_logs: true
