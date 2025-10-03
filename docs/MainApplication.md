@@ -87,9 +87,9 @@ INTERVAL=0 12 * * SUN-SAT  # Cron schedule (daily at noon)
 - **ejs**: Template engine for web views
 
 ## Service Dependencies
-- **MongoDB**: Database storage (port 27017)
+- **MongoDB**: Database storage (port 30001)
 - **Readability Service**: Content extraction (port 3000)
-- **RSS-Bridge**: Custom RSS feeds (port 3939)
+- **RSS-Bridge**: Custom RSS feeds (port 30002)
 
 ## Data Flow
 1. **Scheduler triggers** → `scanFeeds()`

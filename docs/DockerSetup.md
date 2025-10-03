@@ -10,15 +10,15 @@ The project uses Docker Compose to orchestrate a multi-service architecture for 
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   proxy-scanner │    │   readability    │    │  rss-bridge     │
 │   (Main App)    │◄──►│   (Content       │    │  (RSS Gen)      │
-│   Port: 4912    │    │   Extraction)    │    │  Port: 3939     │
+│   Port: 30005   │    │   Extraction)    │    │  Port: 30002    │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
          │                                              │
          ▼                                              │
 ┌─────────────────┐    ┌──────────────────┐            │
 │      hug        │    │ readability-     │◄───────────┘
 │   (Python API) │◄──►│   database       │
-│   Port: 3839    │    │   (MongoDB)      │
-└─────────────────┘    │   Port: 27017    │
+│   Port: 30003   │    │   (MongoDB)      │
+└─────────────────┘    │   Port: 30001    │
                        └──────────────────┘
 ```
 
@@ -42,7 +42,7 @@ depends_on:
   - readability-database
   - rss-bridge
 ports:
-  - "4912:8080"
+  - "30005:8080"
 volumes:
   - "./src:/usr/src/app"
 restart: unless-stopped
@@ -50,7 +50,7 @@ restart: unless-stopped
 
 **Features:**
 - **Hot Reload**: File synchronization for development
-- **Port Mapping**: External access via port 4912
+- **Port Mapping**: External access via port 30005
 - **Service Dependencies**: Waits for required services
 - **Volume Mount**: Live code updates without rebuild
 
@@ -81,7 +81,7 @@ environment:
 volumes:
   - database:/data/db
 ports:
-  - 27017:27017
+  - 30001:27017
 restart: unless-stopped
 ```
 
@@ -89,7 +89,7 @@ restart: unless-stopped
 - **Official MongoDB**: Latest stable MongoDB image
 - **User Permissions**: Configured for proper file ownership
 - **Persistent Storage**: Named volume for data persistence
-- **External Access**: Port 27017 for debugging/management
+- **External Access**: Port 30001 for debugging/management
 
 ### 4. **rss-bridge** (RSS Feed Generation)
 ```yaml
@@ -100,14 +100,14 @@ volumes:
   - ./rss-bridge/whitelist.txt:/app/whitelist.txt
   - ./rss-bridge/bridges:/app/bridges
 ports:
-  - 3939:80
+  - 30002:80
 restart: unless-stopped
 ```
 
 **Features:**
 - **Custom Bridges**: Mounted bridge implementations
 - **Configuration**: Whitelist for security
-- **Web Interface**: Accessible at port 3939
+- **Web Interface**: Accessible at port 30002
 - **RSS Generation**: Creates feeds from websites without RSS
 
 ### 5. **hug** (Python Analytics API)
@@ -119,7 +119,7 @@ networks:
 depends_on:
   - readability-database
 ports:
-  - 3839:8000
+  - 30003:8000
 volumes:
   - ./hug/.:/src
 restart: unless-stopped
@@ -142,11 +142,11 @@ restart: unless-stopped
 ### Port Mappings
 | Service | Internal Port | External Port | Purpose |
 |---------|--------------|---------------|----------|
-| proxy-scanner | 8080 | 4912 | Main web interface |
+| proxy-scanner | 8080 | 30005 | Main web interface |
 | readability | 3000 | - | Content extraction (internal) |
-| readability-database | 27017 | 27017 | MongoDB access |
-| rss-bridge | 80 | 3939 | RSS bridge interface |
-| hug | 8000 | 3839 | Python API access |
+| readability-database | 27017 | 30001 | MongoDB access |
+| rss-bridge | 80 | 30002 | RSS bridge interface |
+| hug | 8000 | 30003 | Python API access |
 
 ## Volume Configuration
 

@@ -11,7 +11,7 @@ Many news websites don't offer RSS feeds, making it difficult to programmaticall
 
 ## Container Configuration
 - **Image**: `rssbridge/rss-bridge:latest`
-- **Port**: `3939:80` (accessible at `localhost:3939`)
+- **Port**: `30002:80` (accessible at `localhost:30002`)
 - **Network**: `readable` (internal Docker network)
 
 ## File Structure
@@ -120,7 +120,7 @@ Generated RSS feeds include:
   - `<author>`: Article author(s)
 
 ## Integration with Main Application
-1. **RSS-Bridge generates feeds** at `localhost:3939/bridge-name`
+1. **RSS-Bridge generates feeds** at `localhost:30002/bridge-name`
 2. **Main application** adds these URLs to MongoDB `urls` collection
 3. **Scheduled crawler** treats bridge-generated feeds like native RSS feeds
 4. **Content processing** follows same pipeline as native RSS feeds
@@ -138,7 +138,7 @@ Generated RSS feeds include:
 - **Extensible**: Framework supports adding additional news sources
 
 ## Access URLs
-- Bridge Interface: `http://localhost:3939`
-- AP Politics Feed: `http://localhost:3939/?action=display&bridge=APNewsPolitics&format=Atom`
-- AP Top News Feed: `http://localhost:3939/?action=display&bridge=APNewsTopNews&format=Atom`
-- Reuters Feed: `http://localhost:3939/?action=display&bridge=Reuters&format=Atom`
+- Bridge Interface: `http://localhost:30002`
+- AP Politics Feed: `http://localhost:30002/?action=display&bridge=APNewsPolitics&format=Atom`
+- AP Top News Feed: `http://localhost:30002/?action=display&bridge=APNewsTopNews&format=Atom`
+- Reuters Feed: `http://localhost:30002/?action=display&bridge=Reuters&format=Atom`

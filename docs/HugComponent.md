@@ -12,7 +12,7 @@ This component serves as:
 
 ## Container Configuration
 - **Base Image**: `python:3.10.15-alpine3.20`
-- **Port**: `3839:8000` (accessible at `localhost:3839`)
+- **Port**: `30003:8000` (accessible at `localhost:30003`)
 - **Network**: `readable` (internal Docker network)
 - **Dependencies**: MongoDB access, Node.js for additional tooling
 
@@ -216,15 +216,15 @@ hug/
 
 ```bash
 # Generate ML datasets
-curl http://localhost:3839/generate_files
+curl http://localhost:30003/generate_files
 
 # Download data archive  
-curl -O http://localhost:3839/get_zip
+curl -O http://localhost:30003/get_zip
 
 # Word frequency analysis
-curl http://localhost:3839/wordcloud
+curl http://localhost:30003/wordcloud
 
 # Summarize text
-curl -X POST http://localhost:3839/summarize \
+curl -X POST http://localhost:30003/summarize \
   -d "prompt=Your text here"
 ```

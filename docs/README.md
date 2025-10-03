@@ -28,9 +28,9 @@ docker-compose logs -f proxy-scanner
 
 ### Access Points
 - **Main Interface**: http://localhost:4912
-- **Python API**: http://localhost:3839  
-- **RSS-Bridge**: http://localhost:3939
-- **MongoDB**: localhost:27017
+- **Python API**: http://localhost:30003  
+- **RSS-Bridge**: http://localhost:30002
+- **MongoDB**: localhost:30001
 
 ### Basic Usage
 ```bash
@@ -41,10 +41,10 @@ curl "http://localhost:4912/add-url?url=https://rss-feed-url"
 curl "http://localhost:4912/daily"
 
 # Generate ML datasets
-curl "http://localhost:3839/generate_files"
+curl "http://localhost:30003/generate_files"
 
 # Export data archive
-curl -O "http://localhost:3839/get_zip"
+curl -O "http://localhost:30003/get_zip"
 ```
 
 ## System Architecture
@@ -54,10 +54,10 @@ curl -O "http://localhost:3839/get_zip"
 RSS Feeds → Content Extraction → Readability Analysis → MongoDB → Web Analytics
      ↑              ↑                    ↑               ↑           ↑
 RSS-Bridge    Readability         Main App         Database    Dashboard
-   :3939        Service            :4912           :27017      (Web UI)
+   :30002       Service            :30005          :30001      (Web UI)
                  :3000                 ↓
                                   Python API
-                                    :3839
+                                    :30003
 ```
 
 ### Key Components
@@ -83,9 +83,9 @@ INTERVAL=0 12 * * SUN-SAT  # Daily at noon
 | Service | Port | Purpose |
 |---------|------|---------|
 | Main App | 4912 | Web interface |
-| Python API | 3839 | ML and export API |
-| RSS-Bridge | 3939 | RSS generation |
-| MongoDB | 27017 | Database (debugging) |
+| Python API | 30003 | ML and export API |
+| RSS-Bridge | 30002 | RSS generation |
+| MongoDB | 30001 | Database (debugging) |
 
 ## Development
 
@@ -110,7 +110,7 @@ docker-compose build proxy-scanner
 ## Troubleshooting
 
 ### Common Issues
-1. **Port conflicts**: Ensure ports 4912, 3839, 3939, 27017 are available
+1. **Port conflicts**: Ensure ports 30005, 30003, 30002, 30001 are available
 2. **Volume permissions**: Ensure `E:\NewsDatabase` directory exists and is writable
 3. **Memory issues**: Ensure Docker has sufficient RAM allocation
 4. **Network issues**: Check Docker network configuration
@@ -121,10 +121,10 @@ docker-compose build proxy-scanner
 curl http://localhost:4912
 
 # Test Python API
-curl http://localhost:3839/happy_birthday?name=Test
+curl http://localhost:30003/happy_birthday?name=Test
 
 # Test RSS-Bridge
-curl http://localhost:3939
+curl http://localhost:30002
 
 # Test MongoDB connection
 docker exec -it crawltest_readability-database_1 mongosh
@@ -156,7 +156,7 @@ docker exec crawltest_readability-database_1 mongorestore /backup
 
 ### Export Data
 - **Web Interface**: http://localhost:4912/export
-- **Python API**: http://localhost:3839/create_zip
+- **Python API**: http://localhost:30003/create_zip
 - **Direct MongoDB**: Use MongoDB Compass or mongosh
 
 ## Next Steps

@@ -22,14 +22,14 @@ A comprehensive **automated news analysis system** that crawls news articles fro
 │  ┌──────────────┐  ┌──────────────┐  ┌─────────────────┐  │
 │  │ RSS-Bridge   │  │ Readability  │  │ Main App        │  │
 │  │ (RSS Gen)    │  │ (Content     │  │ (Crawler +      │  │
-│  │ :3939        │  │ Extract)     │  │ Analytics)      │  │
+│  │ :30002       │  │ Extract)     │  │ Analytics)      │  │
 │  └──────────────┘  │ :3000        │  │ :4912           │  │
 │                     └──────────────┘  └─────────────────┘  │
 │                                                ▲             │
 │  ┌──────────────┐  ┌──────────────────────────┼───────────┐ │
 │  │ Hug API      │  │           MongoDB        │           │ │
 │  │ (Python ML)  │◄─┤         (Database)       │           │ │
-│  │ :3839        │  │          :27017          │           │ │
+│  │ :30003       │  │          :30001          │           │ │
 │  └──────────────┘  └──────────────────────────┼───────────┘ │
 │                                                ▼             │
 └─────────────────────────────────────────────────────────────┘
@@ -198,7 +198,7 @@ Crawltest/
 | `/export` | GET | Data export (CSV/JSON) |
 | `/add-url` | GET | Add RSS feed to monitoring |
 
-### **Hug API (Port 3839)**
+### **Hug API (Port 30003)**
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/generate_files` | GET | Create ML datasets |
@@ -208,7 +208,7 @@ Crawltest/
 | `/wordcloud` | GET | Word frequency analysis |
 | `/summarize` | POST | AI text summarization |
 
-### **RSS-Bridge (Port 3939)**
+### **RSS-Bridge (Port 30002)**
 | Bridge | URL | Purpose |
 |--------|-----|---------|
 | AP Politics | `/?action=display&bridge=APNewsPolitics&format=Atom` | AP Politics RSS |
@@ -227,9 +227,9 @@ Crawltest/
 
 ### **Network Ports**
 - **4912**: Main web interface
-- **3839**: Python API
-- **3939**: RSS-Bridge interface
-- **27017**: MongoDB (for debugging)
+- **30003**: Python API
+- **30002**: RSS-Bridge interface
+- **30001**: MongoDB (for debugging)
 
 ## Getting Started
 
