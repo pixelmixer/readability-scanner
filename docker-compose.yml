@@ -307,12 +307,28 @@ services:
         max-file: "3"
         labels: "service=signoz-query-service"
 
+  signoz-alertmanager:
+    image: prom/alertmanager:latest
+    ports:
+      - "30013:9093"
+    volumes:
+      - ./signoz/alertmanager-config.yaml:/etc/alertmanager/alertmanager.yml
+    networks:
+      - readable
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=signoz-alertmanager"
+
   signoz-frontend:
     image: signoz/frontend
     ports:
       - "30012:3301"
     environment:
-      - REACT_APP_BASE_URL=http://localhost:3301
+      - REACT_APP_BASE_URL=http://localhost:30012
       - REACT_APP_SIGNOZ_INGESTION_KEY=YOUR_INGESTION_KEY
     networks:
       - readable

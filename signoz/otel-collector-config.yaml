@@ -47,25 +47,36 @@ exporters:
   prometheus:
     endpoint: "0.0.0.0:8889"
 
+  # SigNoz ClickHouse exporters
+  clickhouse:
+    endpoint: tcp://signoz-clickhouse:9000
+    database: signoz
+    username: default
+    password: ""
+    timeout: 5s
+    retry_on_failure:
+      enabled: true
+      initial_interval: 5s
+      max_interval: 30s
+      max_elapsed_time: 300s
+
   # Debug exporter for testing
   debug:
     verbosity: detailed
-
-  # SigNoz exporters will be configured later
 
 service:
   pipelines:
     metrics:
       receivers: [otlp, prometheus]
       processors: [batch, resource]
-      exporters: [prometheus, debug]
+      exporters: [clickhouse, prometheus, debug]
 
     traces:
       receivers: [otlp]
       processors: [batch, resource]
-      exporters: [debug]
+      exporters: [clickhouse, debug]
 
     logs:
       receivers: [otlp, filelog]
       processors: [batch, resource]
-      exporters: [debug]
+      exporters: [clickhouse, debug]
