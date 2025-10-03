@@ -15,9 +15,6 @@ from database.sources import source_repository
 from scheduler.scheduler import start_scheduler, stop_scheduler
 from config import settings
 
-# OpenTelemetry instrumentation
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
-
 logger = logging.getLogger(__name__)
 
 
@@ -87,9 +84,6 @@ def create_app() -> FastAPI:
 
     # Exception handlers
     register_exception_handlers(app)
-
-    # Instrument FastAPI with OpenTelemetry
-    FastAPIInstrumentor.instrument_app(app)
 
     return app
 

@@ -9,3 +9,9 @@ RUN npm install -g nodemon
 ENV SKLEARN_ALLOW_DEPRECATED_SKLEARN_PACKAGE_INSTALL=True
 
 RUN pip install -r requirements.txt
+
+# Install automatic instrumentation
+RUN opentelemetry-bootstrap --action=install
+
+# Run the application with automatic instrumentation
+CMD ["opentelemetry-instrument", "hug", "-f", "api.py"]

@@ -12,47 +12,6 @@ from pymongo import MongoClient
 from bson import json_util
 import pandas as pd
 
-# OpenTelemetry instrumentation
-from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
-from opentelemetry.instrumentation.pymongo import PymongoInstrumentor
-
-# Initialize OpenTelemetry
-def setup_telemetry():
-    """Setup OpenTelemetry instrumentation for the Hug API service."""
-    # Create resource
-    resource = Resource.create({
-        "service.name": os.getenv("OTEL_SERVICE_NAME", "hug-api"),
-        "service.version": "1.0.0",
-        "deployment.environment": os.getenv("ENVIRONMENT", "development")
-    })
-
-    # Set up tracer provider
-    trace.set_tracer_provider(TracerProvider(resource=resource))
-    tracer = trace.get_tracer_provider().get_tracer(__name__)
-
-    # Set up OTLP exporter
-    otlp_exporter = OTLPSpanExporter(
-        endpoint=os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "http://localhost:4317"),
-        insecure=True
-    )
-
-    # Add span processor
-    span_processor = BatchSpanProcessor(otlp_exporter)
-    trace.get_tracer_provider().add_span_processor(span_processor)
-
-    # Instrument libraries
-    RequestsInstrumentor().instrument()
-    PymongoInstrumentor().instrument()
-
-    return tracer
-
-# Setup telemetry
-tracer = setup_telemetry()
 # For local streaming, the websockets are hosted without ssl - http://
 HOST = '192.168.86.32:5000'
 URI = f'http://{HOST}/api/v1/generate'

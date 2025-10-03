@@ -47,15 +47,9 @@ celery[redis]==5.3.4
 redis==4.6.0
 flower==2.0.1
 
-# OpenTelemetry instrumentation
-opentelemetry-api==1.21.0
-opentelemetry-sdk==1.21.0
-opentelemetry-exporter-otlp==1.21.0
-opentelemetry-instrumentation-fastapi==0.42b0
-opentelemetry-instrumentation-celery==0.42b0
-opentelemetry-instrumentation-requests==0.42b0
-opentelemetry-instrumentation-pymongo==0.42b0
-opentelemetry-instrumentation-redis==0.42b0
+# OpenTelemetry instrumentation - SigNoz recommended packages
+opentelemetry-distro==0.43b0
+opentelemetry-exporter-otlp==1.22.0
 
 # Development
 pytest==7.4.3

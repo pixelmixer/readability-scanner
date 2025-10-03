@@ -15,6 +15,9 @@ COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir --use-deprecated=legacy-resolver -r requirements.txt
 
+# Install automatic instrumentation
+RUN opentelemetry-bootstrap --action=install
+
 # Copy application code
 COPY . .
 
@@ -32,5 +35,5 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8080/health')" || exit 1
 
-# Run the application
-CMD ["python", "main.py"]
+# Run the application with automatic instrumentation
+CMD ["opentelemetry-instrument", "python", "main.py"]
