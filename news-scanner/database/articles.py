@@ -455,6 +455,34 @@ class ArticleRepository:
             logger.error(f"Error counting total articles: {e}")
             return 0
 
+    async def get_articles_with_future_dates(self, current_time: datetime) -> List[Dict[str, Any]]:
+        """Get articles with publication dates in the future."""
+        try:
+            query = {
+                "publication_date": {"$gt": current_time}
+            }
+
+            logger.debug(f"Querying articles with future dates after {current_time}")
+            cursor = self.collection.find(query)
+            docs = await cursor.to_list(length=None)  # Get all future-dated articles
+            logger.debug(f"Found {len(docs)} articles with future publication dates")
+            return docs
+        except Exception as e:
+            logger.error(f"Error getting articles with future dates: {e}")
+            return []
+
+    async def delete_article(self, article_id: str) -> bool:
+        """Delete an article by its ID."""
+        try:
+            from bson import ObjectId
+            result = await self.collection.delete_one({"_id": ObjectId(article_id)})
+            success = result.deleted_count > 0
+            logger.debug(f"Delete article {article_id}: {success}")
+            return success
+        except Exception as e:
+            logger.error(f"Error deleting article {article_id}: {e}")
+            return False
+
     async def update_article_publication_date(self, url: str, publication_date: datetime) -> bool:
         """Update an article with publication date information."""
         try:

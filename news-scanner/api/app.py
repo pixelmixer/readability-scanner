@@ -3,7 +3,9 @@ Main FastAPI application setup.
 """
 
 import logging
+import json
 from contextlib import asynccontextmanager
+from datetime import datetime
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -16,6 +18,18 @@ from scheduler.scheduler import start_scheduler, stop_scheduler
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+
+class DateTimeEncoder(json.JSONEncoder):
+    """Custom JSON encoder that properly serializes datetime objects with timezone info."""
+    def default(self, obj):
+        if isinstance(obj, datetime):
+            # Ensure datetime is in UTC and format with timezone info
+            if obj.tzinfo is None:
+                # Assume naive datetime is UTC
+                obj = obj.replace(tzinfo=datetime.timezone.utc)
+            return obj.isoformat()
+        return super().default(obj)
 
 
 @asynccontextmanager
@@ -67,7 +81,8 @@ def create_app() -> FastAPI:
         version=settings.app_version,
         description="Modern Python-based news readability analysis system",
         lifespan=lifespan,
-        debug=settings.debug
+        debug=settings.debug,
+        json_encoder=DateTimeEncoder  # Use custom datetime encoder
     )
 
     # CORS middleware

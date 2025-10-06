@@ -197,7 +197,13 @@ function showError(message) {
         if (!dateString) return 'Unknown date';
 
         try {
-            const date = new Date(dateString);
+            // Ensure date string ends with 'Z' for UTC if it doesn't have timezone info
+            let normalizedDateString = dateString;
+            if (dateString.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/)) {
+                normalizedDateString = dateString + 'Z'; // Assume UTC if no timezone specified
+            }
+
+            const date = new Date(normalizedDateString);
 
             // Check if date is valid
             if (isNaN(date.getTime())) {
@@ -237,7 +243,13 @@ function showError(message) {
     function isNewArticle(dateString) {
         if (!dateString) return false;
         try {
-            const date = new Date(dateString);
+            // Ensure date string ends with 'Z' for UTC if it doesn't have timezone info
+            let normalizedDateString = dateString;
+            if (dateString.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/)) {
+                normalizedDateString = dateString + 'Z'; // Assume UTC if no timezone specified
+            }
+
+            const date = new Date(normalizedDateString);
             if (isNaN(date.getTime())) return false;
 
             const now = new Date();
@@ -258,7 +270,13 @@ function showError(message) {
     function isBreakingNews(dateString) {
         if (!dateString) return false;
         try {
-            const date = new Date(dateString);
+            // Ensure date string ends with 'Z' for UTC if it doesn't have timezone info
+            let normalizedDateString = dateString;
+            if (dateString.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/)) {
+                normalizedDateString = dateString + 'Z'; // Assume UTC if no timezone specified
+            }
+
+            const date = new Date(normalizedDateString);
             if (isNaN(date.getTime())) return false;
 
             const now = new Date();

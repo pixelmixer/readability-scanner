@@ -163,6 +163,14 @@ class RSSParser:
                             # Normalize to UTC for consistent storage
                             pub_date = normalize_date(pub_date)
                             if pub_date:
+                                # Validate that the date is not in the future
+                                now = datetime.now(timezone.utc)
+                                if pub_date > now:
+                                    # If date is in the future, use analysis_date instead
+                                    analysis_date = datetime.now(timezone.utc)
+                                    self.logger.warning(f"Future date detected for article, using analysis_date instead: {pub_date} -> {analysis_date}")
+                                    pub_date = analysis_date
+
                                 self.logger.debug(f"Successfully parsed and normalized date from field '{date_field}': {pub_date}")
                                 break
                             else:
