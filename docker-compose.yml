@@ -62,8 +62,10 @@ services:
     restart: unless-stopped
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=service.name=hug-api
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://signoz-otel-collector:4317
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:30007
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://localhost:30008/v1/logs
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://localhost:30008/v1/metrics
     logging:
       driver: "json-file"
       options:
@@ -108,8 +110,10 @@ services:
     restart: unless-stopped
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=service.name=news-scanner
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://signoz-otel-collector:4317
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:30007
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://localhost:30008/v1/logs
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://localhost:30008/v1/metrics
     logging:
       driver: "json-file"
       options:
@@ -141,8 +145,10 @@ services:
     restart: unless-stopped
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=service.name=celery-worker
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://signoz-otel-collector:4317
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:30007
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://localhost:30008/v1/logs
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://localhost:30008/v1/metrics
     logging:
       driver: "json-file"
       options:
@@ -173,8 +179,10 @@ services:
     restart: unless-stopped
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=service.name=celery-beat
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://signoz-otel-collector:4317
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:30007
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://localhost:30008/v1/logs
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://localhost:30008/v1/metrics
     logging:
       driver: "json-file"
       options:
@@ -206,8 +214,10 @@ services:
     restart: unless-stopped
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=service.name=celery-flower
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://signoz-otel-collector:4317
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:30007
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://localhost:30008/v1/logs
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://localhost:30008/v1/metrics
     logging:
       driver: "json-file"
       options:
