@@ -7,7 +7,31 @@ import os
 from celery import Celery
 from celery.schedules import crontab
 
-# Configure logging
+# Set up OpenTelemetry logging for Celery
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
+
+# Set up OpenTelemetry for Celery
+trace.set_tracer_provider(TracerProvider())
+tracer = trace.get_tracer(__name__)
+
+# Configure OTLP exporter for traces
+otlp_exporter = OTLPSpanExporter(
+    endpoint="http://host.docker.internal:30007",
+    insecure=True
+)
+
+# Add span processor
+span_processor = BatchSpanProcessor(otlp_exporter)
+trace.get_tracer_provider().add_span_processor(span_processor)
+
+# Set up OpenTelemetry logging
+LoggingInstrumentor().instrument()
+
+# Configure logging with OpenTelemetry
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'

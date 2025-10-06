@@ -50,6 +50,8 @@ flower==2.0.1
 # OpenTelemetry instrumentation - SigNoz recommended packages
 opentelemetry-distro==0.43b0
 opentelemetry-exporter-otlp==1.22.0
+opentelemetry-sdk==1.22.0
+opentelemetry-instrumentation-logging==0.43b0
 
 # Development
 pytest==7.4.3

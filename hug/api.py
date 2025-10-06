@@ -4,6 +4,7 @@ import json
 import hug
 import tarfile
 import requests
+import logging
 
 from datetime import datetime, timezone
 import time
@@ -11,6 +12,36 @@ import time
 from pymongo import MongoClient
 from bson import json_util
 import pandas as pd
+
+# Set up OpenTelemetry logging for Hug API
+from opentelemetry import trace
+from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.instrumentation.logging import LoggingInstrumentor
+
+# Set up OpenTelemetry
+trace.set_tracer_provider(TracerProvider())
+tracer = trace.get_tracer(__name__)
+
+# Configure OTLP exporter for traces
+otlp_exporter = OTLPSpanExporter(
+    endpoint="http://host.docker.internal:30007",
+    insecure=True
+)
+
+# Add span processor
+span_processor = BatchSpanProcessor(otlp_exporter)
+trace.get_tracer_provider().add_span_processor(span_processor)
+
+# Set up OpenTelemetry logging
+LoggingInstrumentor().instrument()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 # For local streaming, the websockets are hosted without ssl - http://
 HOST = '192.168.86.32:5000'
