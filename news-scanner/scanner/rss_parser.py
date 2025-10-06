@@ -3,7 +3,7 @@ RSS feed parsing functionality.
 """
 
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import List, Dict, Any, Optional
 from urllib.parse import urlparse
 import feedparser
