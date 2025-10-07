@@ -88,7 +88,14 @@ def create_app() -> FastAPI:
     # CORS middleware
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:4912", "http://localhost:4913", "*"],  # Allow both services
+        allow_origins=[
+            "http://localhost:30005", 
+            "http://localhost:4912", 
+            "http://localhost:4913", 
+            "https://news.sparksplex.com",
+            "http://news.sparksplex.com",
+            "*"
+        ],  # Allow both localhost and external domain
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -109,19 +116,106 @@ def register_routes(app: FastAPI):
     # Import route modules
     from .routes import sources, daily, graph, export, scan, summaries
 
-    # Include route modules
-    app.include_router(sources.router, prefix="/sources", tags=["sources"])
-    app.include_router(daily.router, prefix="/daily", tags=["daily"])
-    app.include_router(graph.router, prefix="/graph", tags=["graph"])
-    app.include_router(export.router, prefix="/export", tags=["export"])
-    app.include_router(scan.router, prefix="/scan", tags=["scan"])
-    app.include_router(summaries.router, prefix="/summaries", tags=["summaries"])
+    # Include route modules with /api prefix
+    app.include_router(sources.router, prefix="/api/sources", tags=["sources"])
+    app.include_router(daily.router, prefix="/api/daily", tags=["daily"])
+    app.include_router(graph.router, prefix="/api/graph", tags=["graph"])
+    app.include_router(export.router, prefix="/api/export", tags=["export"])
+    app.include_router(scan.router, prefix="/api/scan", tags=["scan"])
+    app.include_router(summaries.router, prefix="/api/summaries", tags=["summaries"])
 
-    # Root redirect
+    # Web page routes (without /api prefix)
     @app.get("/", include_in_schema=False)
     async def root():
         """Redirect root to sources page."""
         return RedirectResponse(url="/sources", status_code=302)
+
+    @app.get("/sources", include_in_schema=False)
+    async def sources_page(request: Request):
+        """Serve the sources management page."""
+        from fastapi.templating import Jinja2Templates
+        from database.sources import source_repository
+        from config import settings
+        
+        templates = Jinja2Templates(directory="templates")
+        sources_with_stats = await source_repository.get_sources_with_stats()
+        
+        return templates.TemplateResponse("pages/sources.html", {
+            "request": request,
+            "sources": sources_with_stats,
+            "title": "News Sources Management",
+            "buildTimestamp": settings.build_timestamp,
+            "buildVersion": settings.build_version
+        })
+
+    @app.get("/daily", include_in_schema=False)
+    async def daily_page(request: Request):
+        """Serve the daily report page."""
+        from fastapi.templating import Jinja2Templates
+        from database.articles import article_repository
+        from config import settings
+        from datetime import datetime, timedelta
+        
+        templates = Jinja2Templates(directory="templates")
+        
+        # Get query parameters
+        start_param = request.query_params.get("start")
+        end_param = request.query_params.get("end")
+        
+        # Parse date parameters
+        if end_param:
+            end_date = datetime.strptime(end_param, "%Y-%m-%d")
+        else:
+            end_date = datetime.now()
+
+        if start_param:
+            start_date = datetime.strptime(start_param, "%Y-%m-%d")
+        else:
+            start_date = end_date - timedelta(days=7)  # Default to 1 week
+
+        # Get aggregated data
+        results = await article_repository.aggregate_readability_by_host(
+            start_date=start_date,
+            end_date=end_date,
+            min_articles=1
+        )
+
+        # Format dates for display
+        formatted_start = start_date.strftime("%m/%d/%y %H:%M")
+        formatted_end = end_date.strftime("%m/%d/%y %H:%M")
+
+        # Calculate duration
+        diff = end_date - start_date
+        duration = diff.days
+
+        # Calculate previous/next periods
+        previous_start = start_date - diff
+        next_end = end_date + diff
+
+        dates = {
+            "formattedStart": formatted_start,
+            "formattedEnd": formatted_end,
+            "previous": previous_start.strftime("%m/%d/%y %H:%M"),
+            "next": next_end.strftime("%m/%d/%y %H:%M"),
+            "duration": duration
+        }
+        
+        return templates.TemplateResponse("pages/daily.html", {
+            "request": request,
+            "results": results,
+            "dates": dates,
+            "title": "Daily News Readability Report",
+            "buildTimestamp": settings.build_timestamp,
+            "buildVersion": settings.build_version
+        })
+
+    @app.get("/graph", include_in_schema=False)
+    async def graph_page(request: Request):
+        """Serve the graph visualization page."""
+        from fastapi.templating import Jinja2Templates
+        
+        templates = Jinja2Templates(directory="templates")
+        return templates.TemplateResponse("pages/graph.html", {"request": request})
 
     # Summary management page
     @app.get("/summaries-page", include_in_schema=False)

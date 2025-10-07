@@ -271,7 +271,7 @@ $(document).ready(function() {
 });
 
 function loadSummaryStats() {
-    $.get('/summaries/stats')
+    $.get('/api/summaries/stats')
         .done(function(data) {
             // API returns data directly, not wrapped in success object
             $('#total-articles').text(data.total_articles);
@@ -310,7 +310,7 @@ function loadArticlesWithoutSummaries() {
     loadingDiv.show();
     articlesDiv.html('');
 
-    $.get('/summaries/articles/without-summaries?limit=20')
+    $.get('/api/summaries/articles/without-summaries?limit=20')
         .done(function(data) {
             if (data.success) {
                 if (data.articles.length === 0) {
@@ -357,7 +357,7 @@ function triggerSummaryGeneration() {
     confirmBtn.prop('disabled', true)
               .html('<span class="spinner-border spinner-border-sm mr-2"></span>Processing...');
 
-    $.post('/summaries/trigger', {
+    $.post('/api/summaries/trigger', {
         batch_size: parseInt(batchSize)
     })
     .done(function(data) {
@@ -390,7 +390,7 @@ function triggerSummaryGeneration() {
 }
 
 function triggerSingleSummary(articleUrl) {
-    $.post(`/summaries/trigger/${encodeURIComponent(articleUrl)}`)
+    $.post(`/api/summaries/trigger/${encodeURIComponent(articleUrl)}`)
         .done(function(data) {
             if (data.success) {
                 showToast('Summary Generation Triggered!', 'Summary generation triggered for this article!', 'success');
@@ -410,7 +410,7 @@ function triggerSingleSummary(articleUrl) {
 let jobHistory = [];
 
 function loadQueueStatus() {
-    $.get('/summaries/jobs/queue-status')
+    $.get('/api/summaries/jobs/queue-status')
         .done(function(data) {
             if (data.success) {
                 let statusHtml = `
@@ -504,7 +504,7 @@ function getStatusBadge(status) {
 }
 
 function checkJobStatus(taskId) {
-    $.get(`/summaries/jobs/status/${taskId}`)
+    $.get(`/api/summaries/jobs/status/${taskId}`)
         .done(function(data) {
             if (data.success) {
                 const status = data.status;

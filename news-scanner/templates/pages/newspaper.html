@@ -128,7 +128,7 @@ function loadTodaysNews() {
     contentDiv.hide();
     noArticlesDiv.hide();
 
-    $.get('/summaries/articles/today?limit=100')
+    $.get('/api/summaries/articles/today?limit=100')
         .done(function(data) {
             if (data.success) {
                 // Update date

@@ -19,7 +19,7 @@
                     <h5 class="mb-0">Add New Source</h5>
                 </div>
                 <div class="card-body">
-                    <form action="/sources/add" method="POST">
+                    <form action="/api/sources/add" method="POST">
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
@@ -233,7 +233,7 @@ $(document).ready(function() {
         $('#editUrl').val(sourceUrl);
         $('#editName').val(sourceName);
         $('#editDescription').val(sourceDescription);
-        $('#editForm').attr('action', `/sources/edit/${sourceId}`);
+        $('#editForm').attr('action', `/api/sources/edit/${sourceId}`);
 
         $('#editModal').modal('show');
     });
@@ -244,7 +244,7 @@ $(document).ready(function() {
         const sourceName = $(this).data('source-name');
 
         $('#deleteSourceName').text(sourceName);
-        $('#deleteForm').attr('action', `/sources/delete/${sourceId}`);
+        $('#deleteForm').attr('action', `/api/sources/delete/${sourceId}`);
         $('#deleteModal').modal('show');
     });
 
@@ -266,7 +266,7 @@ $(document).ready(function() {
         );
 
         // Send refresh request
-        $.post(`/sources/refresh/${sourceId}`)
+        $.post(`/api/sources/refresh/${sourceId}`)
             .done(function(response) {
                 // Hide the persistent toast
                 hidePersistentToast(refreshToastId);
@@ -317,7 +317,7 @@ $(document).ready(function() {
                 nameField.attr('placeholder', 'Fetching feed title...');
 
                 // Make preview request
-                $.post('/sources/preview', { url: url })
+                $.post('/api/sources/preview', { url: url })
                     .done(function(response) {
                         if (response.success && response.title && !nameField.val()) {
                             nameField.val(response.title);
