@@ -7,15 +7,17 @@ import os
 from celery import Celery
 from celery.schedules import crontab
 
-# Set up OpenTelemetry logging for Celery
+# Set up OpenTelemetry logging for Celery BEFORE any logging configuration
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
-# Set up OpenTelemetry for Celery
-trace.set_tracer_provider(TracerProvider())
+# Set up OpenTelemetry for Celery (only if not already set)
+if not trace.get_tracer_provider() or isinstance(trace.get_tracer_provider(), trace.NoOpTracerProvider):
+    trace.set_tracer_provider(TracerProvider())
+
 tracer = trace.get_tracer(__name__)
 
 # Configure OTLP exporter for traces
@@ -28,10 +30,10 @@ otlp_exporter = OTLPSpanExporter(
 span_processor = BatchSpanProcessor(otlp_exporter)
 trace.get_tracer_provider().add_span_processor(span_processor)
 
-# Set up OpenTelemetry logging
+# Set up OpenTelemetry logging bridge FIRST
 LoggingInstrumentor().instrument()
 
-# Configure logging with OpenTelemetry
+# Configure logging AFTER OpenTelemetry logging bridge is set up
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'

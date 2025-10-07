@@ -13,15 +13,17 @@ from pymongo import MongoClient
 from bson import json_util
 import pandas as pd
 
-# Set up OpenTelemetry logging for Hug API
+# Set up OpenTelemetry logging for Hug API BEFORE any other logging
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.instrumentation.logging import LoggingInstrumentor
 
-# Set up OpenTelemetry
-trace.set_tracer_provider(TracerProvider())
+# Set up OpenTelemetry traces (only if not already set)
+if not trace.get_tracer_provider() or isinstance(trace.get_tracer_provider(), trace.NoOpTracerProvider):
+    trace.set_tracer_provider(TracerProvider())
+
 tracer = trace.get_tracer(__name__)
 
 # Configure OTLP exporter for traces
@@ -34,10 +36,10 @@ otlp_exporter = OTLPSpanExporter(
 span_processor = BatchSpanProcessor(otlp_exporter)
 trace.get_tracer_provider().add_span_processor(span_processor)
 
-# Set up OpenTelemetry logging
+# Set up OpenTelemetry logging bridge FIRST
 LoggingInstrumentor().instrument()
 
-# Configure logging
+# Configure logging AFTER OpenTelemetry logging bridge is set up
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
