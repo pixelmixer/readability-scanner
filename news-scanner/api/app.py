@@ -89,9 +89,9 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=[
-            "http://localhost:30005", 
-            "http://localhost:4912", 
-            "http://localhost:4913", 
+            "http://localhost:30005",
+            "http://localhost:4912",
+            "http://localhost:4913",
             "https://news.sparksplex.com",
             "http://news.sparksplex.com",
             "*"
@@ -136,10 +136,10 @@ def register_routes(app: FastAPI):
         from fastapi.templating import Jinja2Templates
         from database.sources import source_repository
         from config import settings
-        
+
         templates = Jinja2Templates(directory="templates")
         sources_with_stats = await source_repository.get_sources_with_stats()
-        
+
         return templates.TemplateResponse("pages/sources.html", {
             "request": request,
             "sources": sources_with_stats,
@@ -155,13 +155,13 @@ def register_routes(app: FastAPI):
         from database.articles import article_repository
         from config import settings
         from datetime import datetime, timedelta
-        
+
         templates = Jinja2Templates(directory="templates")
-        
+
         # Get query parameters
         start_param = request.query_params.get("start")
         end_param = request.query_params.get("end")
-        
+
         # Parse date parameters
         if end_param:
             end_date = datetime.strptime(end_param, "%Y-%m-%d")
@@ -199,7 +199,7 @@ def register_routes(app: FastAPI):
             "next": next_end.strftime("%m/%d/%y %H:%M"),
             "duration": duration
         }
-        
+
         return templates.TemplateResponse("pages/daily.html", {
             "request": request,
             "results": results,
@@ -213,7 +213,7 @@ def register_routes(app: FastAPI):
     async def graph_page(request: Request):
         """Serve the graph visualization page."""
         from fastapi.templating import Jinja2Templates
-        
+
         templates = Jinja2Templates(directory="templates")
         return templates.TemplateResponse("pages/graph.html", {"request": request})
 
