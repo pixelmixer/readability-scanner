@@ -49,39 +49,39 @@ from .jobs.topic_analysis_jobs import (
 from celery_app.celery_worker import celery_app
 
 # Register topic analysis tasks as Celery tasks
-@celery_app.task(bind=True, base=BaseTask, name='generate_article_embedding')
+@celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.generate_article_embedding', priority=4)
 def generate_article_embedding(self, article_url: str):
-    """Celery task wrapper for generate_article_embedding."""
+    """Celery task wrapper for generate_article_embedding. Priority 4 (higher than summary tasks)."""
     import asyncio
     return asyncio.run(_generate_article_embedding(article_url))
 
-@celery_app.task(bind=True, base=BaseTask, name='batch_generate_embeddings')
+@celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.batch_generate_embeddings', priority=3)
 def batch_generate_embeddings(self, batch_size: int = 100):
-    """Celery task wrapper for batch_generate_embeddings."""
+    """Celery task wrapper for batch_generate_embeddings. Priority 3 (same as scheduled summary tasks)."""
     import asyncio
     return asyncio.run(_batch_generate_embeddings(batch_size))
 
-@celery_app.task(bind=True, base=BaseTask, name='group_articles_by_topics')
+@celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.group_articles_by_topics', priority=2)
 def group_articles_by_topics(self, similarity_threshold: float = 0.75, min_group_size: int = 2):
-    """Celery task wrapper for group_articles_by_topics."""
+    """Celery task wrapper for group_articles_by_topics. Priority 2 (lower than embeddings)."""
     import asyncio
     return asyncio.run(_group_articles_by_topics(similarity_threshold, min_group_size))
 
-@celery_app.task(bind=True, base=BaseTask, name='generate_shared_summaries')
+@celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.generate_shared_summaries', priority=2)
 def generate_shared_summaries(self):
-    """Celery task wrapper for generate_shared_summaries."""
+    """Celery task wrapper for generate_shared_summaries. Priority 2 (lower than embeddings)."""
     import asyncio
     return asyncio.run(_generate_shared_summaries())
 
-@celery_app.task(bind=True, base=BaseTask, name='process_new_article')
+@celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.process_new_article', priority=4)
 def process_new_article(self, article_url: str):
-    """Celery task wrapper for process_new_article."""
+    """Celery task wrapper for process_new_article. Priority 4 (higher than summary tasks)."""
     import asyncio
     return asyncio.run(_process_new_article(article_url))
 
-@celery_app.task(bind=True, base=BaseTask, name='full_topic_analysis_pipeline')
+@celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.full_topic_analysis_pipeline', priority=1)
 def full_topic_analysis_pipeline(self):
-    """Celery task wrapper for full_topic_analysis_pipeline."""
+    """Celery task wrapper for full_topic_analysis_pipeline. Priority 1 (lowest, for maintenance)."""
     import asyncio
     return asyncio.run(_full_topic_analysis_pipeline())
 

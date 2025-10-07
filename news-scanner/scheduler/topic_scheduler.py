@@ -110,8 +110,12 @@ class TopicAnalysisScheduler:
             # Import task locally to avoid circular imports
             from celery_app.tasks import batch_generate_embeddings
 
-            # Queue the task
-            result = batch_generate_embeddings.delay(batch_size=100)
+            # Queue the task with proper priority
+            result = batch_generate_embeddings.apply_async(
+                args=[100],
+                queue='normal',
+                priority=3  # Same as scheduled summary tasks
+            )
 
             self.logger.info(f"✓ Embedding generation task queued: {result.id}")
 
@@ -126,10 +130,11 @@ class TopicAnalysisScheduler:
             # Import task locally to avoid circular imports
             from celery_app.tasks import group_articles_by_topics
 
-            # Queue the task
-            result = group_articles_by_topics.delay(
-                similarity_threshold=0.75,
-                min_group_size=2
+            # Queue the task with proper priority
+            result = group_articles_by_topics.apply_async(
+                args=[0.75, 2],
+                queue='normal',
+                priority=2  # Lower than embeddings
             )
 
             self.logger.info(f"✓ Topic grouping task queued: {result.id}")
@@ -145,8 +150,12 @@ class TopicAnalysisScheduler:
             # Import task locally to avoid circular imports
             from celery_app.tasks import generate_shared_summaries
 
-            # Queue the task
-            result = generate_shared_summaries.delay()
+            # Queue the task with proper priority
+            result = generate_shared_summaries.apply_async(
+                args=[],
+                queue='normal',
+                priority=2  # Lower than embeddings
+            )
 
             self.logger.info(f"✓ Summary generation task queued: {result.id}")
 

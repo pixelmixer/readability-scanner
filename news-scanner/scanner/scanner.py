@@ -277,8 +277,12 @@ class ArticleScanner:
             if success and was_new:
                 try:
                     from celery_app.tasks import generate_article_embedding
-                    # Queue embedding generation asynchronously
-                    generate_article_embedding.delay(content_data['url'])
+                    # Queue embedding generation asynchronously with high priority
+                    generate_article_embedding.apply_async(
+                        args=[content_data['url']],
+                        queue='normal',
+                        priority=4  # Higher priority than summary tasks
+                    )
                     self.logger.debug(f"Queued embedding generation for new article: {content_data['url']}")
                 except Exception as e:
                     self.logger.warning(f"Failed to queue embedding generation for {content_data['url']}: {e}")

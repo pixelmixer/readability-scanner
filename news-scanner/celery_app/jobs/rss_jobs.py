@@ -137,7 +137,7 @@ def scan_single_source_task(self, source_url: str, priority: int = 5) -> Dict[st
                 new_articles_count = len(result.new_articles)
                 if new_articles_count > 0:
                     logger.info(f"📝 Triggering summary jobs for {new_articles_count} new articles from {source_name}")
-                    self._trigger_summary_jobs_for_new_articles(result.new_articles)
+                    _trigger_summary_jobs_for_new_articles(result.new_articles)
 
                 return {
                     'success': True,
@@ -261,32 +261,32 @@ def scheduled_scan_trigger_task(self) -> Dict[str, Any]:
             'timestamp': datetime.utcnow().isoformat()
         }
 
-    def _trigger_summary_jobs_for_new_articles(self, new_articles: list[Dict[str, Any]]) -> None:
-        """
-        Trigger summary generation jobs for newly created articles.
+def _trigger_summary_jobs_for_new_articles(new_articles: list[Dict[str, Any]]) -> None:
+    """
+    Trigger summary generation jobs for newly created articles.
 
-        Args:
-            new_articles: List of article data for newly created articles
-        """
-        try:
-            # Import the summary task
-            from .summary_jobs import generate_article_summary_task
+    Args:
+        new_articles: List of article data for newly created articles
+    """
+    try:
+        # Import the summary task
+        from .summary_jobs import generate_article_summary_task
 
-            # Queue summary tasks for each new article
-            for article in new_articles:
-                article_url = article.get('url')
-                if article_url:
-                    try:
-                        task_result = generate_article_summary_task.apply_async(
-                            args=[article_url],
-                            queue='normal',
-                            priority=5  # Higher priority for new articles
-                        )
-                        logger.info(f"📝 Queued summary job for new article: {article_url} (task: {task_result.id})")
-                    except Exception as e:
-                        logger.error(f"❌ Failed to queue summary job for {article_url}: {e}")
+        # Queue summary tasks for each new article
+        for article in new_articles:
+            article_url = article.get('url')
+            if article_url:
+                try:
+                    task_result = generate_article_summary_task.apply_async(
+                        args=[article_url],
+                        queue='normal',
+                        priority=5  # Higher priority for new articles
+                    )
+                    logger.info(f"📝 Queued summary job for new article: {article_url} (task: {task_result.id})")
+                except Exception as e:
+                    logger.error(f"❌ Failed to queue summary job for {article_url}: {e}")
 
-        except ImportError as e:
-            logger.warning(f"Cannot trigger summary jobs - summary module not available: {e}")
-        except Exception as e:
-            logger.error(f"❌ Error triggering summary jobs: {e}")
+    except ImportError as e:
+        logger.warning(f"Cannot trigger summary jobs - summary module not available: {e}")
+    except Exception as e:
+        logger.error(f"❌ Error triggering summary jobs: {e}")

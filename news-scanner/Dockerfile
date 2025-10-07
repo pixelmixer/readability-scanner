@@ -18,11 +18,11 @@ RUN pip install --upgrade pip && \
 # Install automatic instrumentation
 RUN opentelemetry-bootstrap --action=install
 
-# Copy application code
-COPY . .
-
 # Create directories for logs and data
 RUN mkdir -p /app/logs
+
+# Copy application code (after creating directories)
+COPY . .
 
 # Set environment variables
 ENV PYTHONPATH=/app
