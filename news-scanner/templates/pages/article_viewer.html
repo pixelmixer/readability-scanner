@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article Viewer - {{ title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .similarity-bar {
+            background: linear-gradient(90deg, #3b82f6 0%, #10b981 100%);
+        }
+        .article-card {
+            transition: all 0.3s ease;
+        }
+        .article-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-4">
+                    <div class="flex items-center">
+                        <a href="/" class="text-xl font-bold text-gray-900">
+                            <i class="fas fa-newspaper mr-2"></i>
+                            News Analyzer
+                        </a>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="/sources" class="text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-rss mr-1"></i>
+                            Sources
+                        </a>
+                        <a href="/daily" class="text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-chart-line mr-1"></i>
+                            Daily Report
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Article URL Input -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">
+                    <i class="fas fa-search mr-2"></i>
+                    Find Similar Articles
+                </h2>
+                <div class="flex space-x-4">
+                    <div class="flex-1">
+                        <input
+                            type="url"
+                            id="articleUrl"
+                            placeholder="Enter article URL to find similar articles..."
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                    </div>
+                    <button
+                        id="searchBtn"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                    >
+                        <i class="fas fa-search mr-2"></i>
+                        Find Similar
+                    </button>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="hidden text-center py-12">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-600">Finding similar articles...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="errorState" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>
+                    <div>
+                        <h3 class="text-lg font-medium text-red-800">Error</h3>
+                        <p id="errorMessage" class="text-red-600 mt-1"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results -->
+            <div id="resultsContainer" class="hidden">
+                <!-- Article Info -->
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">
+                        <i class="fas fa-file-alt mr-2"></i>
+                        Source Article
+                    </h3>
+                    <div id="sourceArticle" class="text-gray-600">
+                        <!-- Source article info will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Similar Articles -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-6">
+                        <i class="fas fa-layer-group mr-2"></i>
+                        Similar Articles
+                        <span id="similarCount" class="text-sm font-normal text-gray-500"></span>
+                    </h3>
+                    <div id="similarArticles" class="space-y-4">
+                        <!-- Similar articles will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Topic Groups -->
+                <div id="topicGroupsContainer" class="bg-white rounded-lg shadow-sm p-6 mt-8">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-6">
+                        <i class="fas fa-tags mr-2"></i>
+                        Topic Groups
+                        <span id="topicCount" class="text-sm font-normal text-gray-500"></span>
+                    </h3>
+                    <div id="topicGroups" class="space-y-4">
+                        <!-- Topic groups will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        class ArticleViewer {
+            constructor() {
+                this.articleUrl = '';
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                const searchBtn = document.getElementById('searchBtn');
+                const articleUrlInput = document.getElementById('articleUrl');
+
+                searchBtn.addEventListener('click', () => this.searchSimilarArticles());
+                articleUrlInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.searchSimilarArticles();
+                    }
+                });
+            }
+
+            async searchSimilarArticles() {
+                const articleUrl = document.getElementById('articleUrl').value.trim();
+                if (!articleUrl) {
+                    this.showError('Please enter an article URL');
+                    return;
+                }
+
+                this.articleUrl = articleUrl;
+                this.showLoading();
+                this.hideError();
+                this.hideResults();
+
+                try {
+                    // Search for similar articles
+                    const similarResponse = await fetch(`/api/topics/similar/${encodeURIComponent(articleUrl)}?limit=10&similarity_threshold=0.6`);
+
+                    if (!similarResponse.ok) {
+                        const errorData = await similarResponse.json();
+                        throw new Error(errorData.detail || 'Failed to find similar articles');
+                    }
+
+                    const similarData = await similarResponse.json();
+
+                    // Get topic groups
+                    const topicsResponse = await fetch(`/api/topics/article/${encodeURIComponent(articleUrl)}/topics`);
+                    const topicsData = topicsResponse.ok ? await topicsResponse.json() : [];
+
+                    this.displayResults(similarData, topicsData);
+
+                } catch (error) {
+                    console.error('Error searching for similar articles:', error);
+                    this.showError(error.message);
+                } finally {
+                    this.hideLoading();
+                }
+            }
+
+            displayResults(similarData, topicsData) {
+                this.displaySourceArticle(similarData.article_url);
+                this.displaySimilarArticles(similarData.similar_articles);
+                this.displayTopicGroups(topicsData);
+                this.showResults();
+            }
+
+            displaySourceArticle(articleUrl) {
+                const sourceArticleDiv = document.getElementById('sourceArticle');
+                sourceArticleDiv.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <div class="flex-1">
+                            <a href="${articleUrl}" target="_blank" class="text-blue-600 hover:text-blue-800 break-all">
+                                ${articleUrl}
+                            </a>
+                        </div>
+                        <div class="ml-4">
+                            <a href="${articleUrl}" target="_blank" class="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full hover:bg-blue-200">
+                                <i class="fas fa-external-link-alt mr-1"></i>
+                                View Article
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }
+
+            displaySimilarArticles(articles) {
+                const similarArticlesDiv = document.getElementById('similarArticles');
+                const similarCountSpan = document.getElementById('similarCount');
+
+                similarCountSpan.textContent = `(${articles.length} found)`;
+
+                if (articles.length === 0) {
+                    similarArticlesDiv.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-search text-4xl mb-4"></i>
+                            <p>No similar articles found</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                similarArticlesDiv.innerHTML = articles.map(article => `
+                    <div class="article-card bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-gray-900 mb-2">
+                                    <a href="${article.url}" target="_blank" class="hover:text-blue-600">
+                                        ${article.title}
+                                    </a>
+                                </h4>
+                                <p class="text-gray-600 text-sm mb-2">${article.preview}</p>
+                                <div class="flex items-center text-xs text-gray-500 space-x-4">
+                                    <span><i class="fas fa-globe mr-1"></i>${article.host}</span>
+                                    ${article.publication_date ? `<span><i class="fas fa-calendar mr-1"></i>${new Date(article.publication_date).toLocaleDateString()}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="ml-4 flex flex-col items-end">
+                                <div class="mb-2">
+                                    <div class="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                        <div class="similarity-bar h-full" style="width: ${(article.similarity_score * 100).toFixed(0)}%"></div>
+                                    </div>
+                                    <span class="text-xs text-gray-500 mt-1">${(article.similarity_score * 100).toFixed(1)}% similar</span>
+                                </div>
+                                <a href="${article.url}" target="_blank" class="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full hover:bg-blue-200">
+                                    <i class="fas fa-external-link-alt mr-1"></i>
+                                    View
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            displayTopicGroups(topics) {
+                const topicGroupsDiv = document.getElementById('topicGroups');
+                const topicCountSpan = document.getElementById('topicCount');
+
+                topicCountSpan.textContent = `(${topics.length} groups)`;
+
+                if (topics.length === 0) {
+                    topicGroupsDiv.innerHTML = `
+                        <div class="text-center py-8 text-gray-500">
+                            <i class="fas fa-tags text-4xl mb-4"></i>
+                            <p>No topic groups found for this article</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                topicGroupsDiv.innerHTML = topics.map(topic => `
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-3">
+                            <h4 class="font-semibold text-gray-900">Topic Group ${topic.topic_id}</h4>
+                            <div class="flex items-center space-x-4 text-sm text-gray-500">
+                                <span><i class="fas fa-file-alt mr-1"></i>${topic.article_count} articles</span>
+                                <span><i class="fas fa-calendar mr-1"></i>${new Date(topic.created_at).toLocaleDateString()}</span>
+                            </div>
+                        </div>
+                        ${topic.shared_summary ? `
+                            <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-3">
+                                <h5 class="font-medium text-blue-900 mb-2">
+                                    <i class="fas fa-file-text mr-1"></i>
+                                    Shared Summary
+                                </h5>
+                                <p class="text-blue-800 text-sm">${topic.shared_summary}</p>
+                            </div>
+                        ` : ''}
+                    </div>
+                `).join('');
+            }
+
+            showLoading() {
+                document.getElementById('loadingState').classList.remove('hidden');
+            }
+
+            hideLoading() {
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+
+            showError(message) {
+                document.getElementById('errorMessage').textContent = message;
+                document.getElementById('errorState').classList.remove('hidden');
+            }
+
+            hideError() {
+                document.getElementById('errorState').classList.add('hidden');
+            }
+
+            showResults() {
+                document.getElementById('resultsContainer').classList.remove('hidden');
+            }
+
+            hideResults() {
+                document.getElementById('resultsContainer').classList.add('hidden');
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            new ArticleViewer();
+        });
+    </script>
+</body>
+</html>

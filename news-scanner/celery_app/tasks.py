@@ -11,9 +11,10 @@ from .jobs import rss_jobs
 from .jobs import summary_jobs
 from .jobs import backfill_jobs
 from .jobs import reddit_jobs
+from .jobs import topic_analysis_jobs
 
 # Re-export commonly used utilities for backward compatibility
-from .jobs.base_task import CallbackTask, ensure_database_connection
+from .jobs.base_task import CallbackTask as BaseTask, ensure_database_connection
 
 # Re-export all task functions for direct import by API routes
 from .jobs.rss_jobs import (
@@ -34,9 +35,55 @@ from .jobs.reddit_jobs import (
     reddit_backfill_task,
     reddit_backfill_stats_task
 )
+# Import topic analysis functions
+from .jobs.topic_analysis_jobs import (
+    generate_article_embedding as _generate_article_embedding,
+    batch_generate_embeddings as _batch_generate_embeddings,
+    group_articles_by_topics as _group_articles_by_topics,
+    generate_shared_summaries as _generate_shared_summaries,
+    process_new_article as _process_new_article,
+    full_topic_analysis_pipeline as _full_topic_analysis_pipeline
+)
 
 # Import the Celery app for any additional configuration
 from celery_app.celery_worker import celery_app
+
+# Register topic analysis tasks as Celery tasks
+@celery_app.task(bind=True, base=BaseTask, name='generate_article_embedding')
+def generate_article_embedding(self, article_url: str):
+    """Celery task wrapper for generate_article_embedding."""
+    import asyncio
+    return asyncio.run(_generate_article_embedding(article_url))
+
+@celery_app.task(bind=True, base=BaseTask, name='batch_generate_embeddings')
+def batch_generate_embeddings(self, batch_size: int = 100):
+    """Celery task wrapper for batch_generate_embeddings."""
+    import asyncio
+    return asyncio.run(_batch_generate_embeddings(batch_size))
+
+@celery_app.task(bind=True, base=BaseTask, name='group_articles_by_topics')
+def group_articles_by_topics(self, similarity_threshold: float = 0.75, min_group_size: int = 2):
+    """Celery task wrapper for group_articles_by_topics."""
+    import asyncio
+    return asyncio.run(_group_articles_by_topics(similarity_threshold, min_group_size))
+
+@celery_app.task(bind=True, base=BaseTask, name='generate_shared_summaries')
+def generate_shared_summaries(self):
+    """Celery task wrapper for generate_shared_summaries."""
+    import asyncio
+    return asyncio.run(_generate_shared_summaries())
+
+@celery_app.task(bind=True, base=BaseTask, name='process_new_article')
+def process_new_article(self, article_url: str):
+    """Celery task wrapper for process_new_article."""
+    import asyncio
+    return asyncio.run(_process_new_article(article_url))
+
+@celery_app.task(bind=True, base=BaseTask, name='full_topic_analysis_pipeline')
+def full_topic_analysis_pipeline(self):
+    """Celery task wrapper for full_topic_analysis_pipeline."""
+    import asyncio
+    return asyncio.run(_full_topic_analysis_pipeline())
 
 # All tasks are now automatically registered through the imports above
 # Task names remain the same for backward compatibility:
@@ -50,3 +97,9 @@ from celery_app.celery_worker import celery_app
 # - celery_app.tasks.cleanup_old_date_fields_task
 # - celery_app.tasks.reddit_backfill_task
 # - celery_app.tasks.reddit_backfill_stats_task
+# - celery_app.tasks.generate_article_embedding
+# - celery_app.tasks.batch_generate_embeddings
+# - celery_app.tasks.group_articles_by_topics
+# - celery_app.tasks.generate_shared_summaries
+# - celery_app.tasks.process_new_article
+# - celery_app.tasks.full_topic_analysis_pipeline

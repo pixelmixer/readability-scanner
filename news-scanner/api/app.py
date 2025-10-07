@@ -15,9 +15,53 @@ from database.connection import connect_to_database, close_database_connection
 from database.articles import article_repository
 from database.sources import source_repository
 from scheduler.scheduler import start_scheduler, stop_scheduler
+from scheduler.topic_scheduler import start_topic_scheduler, stop_topic_scheduler
 from config import settings
 
 logger = logging.getLogger(__name__)
+
+
+async def initialize_topic_analysis():
+    """Initialize the topic analysis system on startup."""
+    try:
+        logger.info("🔍 Initializing topic analysis system...")
+
+        # Import here to avoid circular imports
+        from services.vector_service import vector_service
+
+        # Initialize vector service
+        await vector_service.initialize()
+        logger.info("✓ Vector service initialized")
+
+        # Check if we need to generate embeddings for existing articles
+        from database.connection import db_manager
+        db = db_manager.get_database()
+        collection = db["documents"]
+
+        total_articles = await collection.count_documents({})
+        articles_with_embeddings = await collection.count_documents({"embedding": {"$exists": True}})
+
+        logger.info(f"📊 Found {total_articles} total articles, {articles_with_embeddings} with embeddings")
+
+        # If we have articles without embeddings, queue batch generation
+        if total_articles > 0 and articles_with_embeddings < total_articles:
+            logger.info("🚀 Queueing batch embedding generation for existing articles...")
+            try:
+                # Import task locally to avoid circular imports
+                from celery_app.tasks import batch_generate_embeddings
+
+                # Queue the task asynchronously
+                batch_generate_embeddings.delay(batch_size=50)
+                logger.info("✓ Batch embedding generation queued")
+            except Exception as e:
+                logger.warning(f"⚠️ Failed to queue batch embedding generation: {e}")
+
+        logger.info("✅ Topic analysis system initialized successfully")
+
+    except Exception as e:
+        logger.error(f"❌ Failed to initialize topic analysis system: {e}")
+        # Don't raise - let the app continue without topic analysis
+        logger.warning("⚠️ Continuing without topic analysis functionality")
 
 
 class DateTimeEncoder(json.JSONEncoder):
@@ -48,8 +92,12 @@ async def lifespan(app: FastAPI):
         await article_repository.create_indexes()
         await source_repository.create_indexes()
 
-        # Start RSS scheduler
+        # Initialize topic analysis system
+        await initialize_topic_analysis()
+
+        # Start schedulers
         start_scheduler()
+        start_topic_scheduler()
 
         logger.info("✅ Application startup completed successfully")
 
@@ -62,8 +110,9 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("🔄 Shutting down application...")
     try:
-        # Stop scheduler first
+        # Stop schedulers first
         stop_scheduler()
+        stop_topic_scheduler()
 
         # Close database connection
         await close_database_connection()
@@ -114,7 +163,7 @@ def register_routes(app: FastAPI):
     """Register all application routes."""
 
     # Import route modules
-    from .routes import sources, daily, graph, export, scan, summaries
+    from .routes import sources, daily, graph, export, scan, summaries, topic_routes, topic_management_routes
 
     # Include route modules with /api prefix
     app.include_router(sources.router, prefix="/api/sources", tags=["sources"])
@@ -123,6 +172,8 @@ def register_routes(app: FastAPI):
     app.include_router(export.router, prefix="/api/export", tags=["export"])
     app.include_router(scan.router, prefix="/api/scan", tags=["scan"])
     app.include_router(summaries.router, prefix="/api/summaries", tags=["summaries"])
+    app.include_router(topic_routes.router, tags=["topics"])
+    app.include_router(topic_management_routes.router, tags=["topic-management"])
 
     # Web page routes (without /api prefix)
     @app.get("/", include_in_schema=False)
@@ -235,6 +286,30 @@ def register_routes(app: FastAPI):
         templates = Jinja2Templates(directory="templates")
         return templates.TemplateResponse("pages/newspaper.html", {"request": request})
 
+    # Article viewer page
+    @app.get("/article-viewer", include_in_schema=False)
+    async def article_viewer_page(request: Request):
+        """Serve the article viewer page for finding similar articles."""
+        from fastapi.templating import Jinja2Templates
+
+        templates = Jinja2Templates(directory="templates")
+        return templates.TemplateResponse("pages/article_viewer.html", {
+            "request": request,
+            "title": "Article Viewer"
+        })
+
+    # Topic management page
+    @app.get("/topic-management", include_in_schema=False)
+    async def topic_management_page(request: Request):
+        """Serve the topic analysis management page."""
+        from fastapi.templating import Jinja2Templates
+
+        templates = Jinja2Templates(directory="templates")
+        return templates.TemplateResponse("pages/topic_management.html", {
+            "request": request,
+            "title": "Topic Analysis Management"
+        })
+
 
     # Health check endpoint
     @app.get("/health", tags=["health"])
@@ -242,10 +317,12 @@ def register_routes(app: FastAPI):
         """Health check endpoint with Celery queue status."""
         from database.connection import db_manager
         from scheduler.scheduler import rss_scheduler
+        from scheduler.topic_scheduler import topic_scheduler
         from celery_app.queue_manager import queue_manager
 
         db_healthy = await db_manager.health_check()
         scheduler_status = rss_scheduler.get_status()
+        topic_scheduler_status = topic_scheduler.get_status()
         queue_stats = await queue_manager.get_queue_stats()
 
         celery_healthy = queue_stats.get("success", False)
@@ -258,6 +335,7 @@ def register_routes(app: FastAPI):
             "build_timestamp": settings.build_timestamp,
             "database": "connected" if db_healthy else "disconnected",
             "scheduler": scheduler_status,
+            "topic_scheduler": topic_scheduler_status,
             "celery": {
                 "status": "connected" if celery_healthy else "disconnected",
                 "active_tasks": queue_stats.get("total_active_tasks", 0),

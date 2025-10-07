@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Topic Analysis Management - News Analyzer</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-running { background-color: #10b981; }
+        .status-stopped { background-color: #ef4444; }
+        .status-unknown { background-color: #6b7280; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-4">
+                    <div class="flex items-center">
+                        <a href="/" class="text-xl font-bold text-gray-900">
+                            <i class="fas fa-newspaper mr-2"></i>
+                            News Analyzer
+                        </a>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="/sources" class="text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-rss mr-1"></i>
+                            Sources
+                        </a>
+                        <a href="/article-viewer" class="text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-search mr-1"></i>
+                            Article Viewer
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <div class="mb-8">
+                <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                    <i class="fas fa-cogs mr-2"></i>
+                    Topic Analysis Management
+                </h1>
+                <p class="text-gray-600">Manage and monitor the topic analysis system</p>
+            </div>
+
+            <!-- System Status -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+                <!-- Statistics Card -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                        <i class="fas fa-chart-bar mr-2"></i>
+                        System Statistics
+                    </h3>
+                    <div id="statsContent" class="space-y-3">
+                        <div class="loading-spinner mx-auto"></div>
+                    </div>
+                </div>
+
+                <!-- Scheduler Status Card -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                        <i class="fas fa-clock mr-2"></i>
+                        Scheduler Status
+                    </h3>
+                    <div id="schedulerContent" class="space-y-3">
+                        <div class="loading-spinner mx-auto"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Management Actions -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    <i class="fas fa-tools mr-2"></i>
+                    Management Actions
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- Generate Embeddings -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">Generate Embeddings</h4>
+                        <p class="text-sm text-gray-600 mb-3">Process articles without embeddings</p>
+                        <button
+                            id="generateEmbeddingsBtn"
+                            class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                            <i class="fas fa-play mr-2"></i>
+                            Start
+                        </button>
+                    </div>
+
+                    <!-- Group Topics -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">Group Topics</h4>
+                        <p class="text-sm text-gray-600 mb-3">Group similar articles together</p>
+                        <button
+                            id="groupTopicsBtn"
+                            class="w-full bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+                        >
+                            <i class="fas fa-layer-group mr-2"></i>
+                            Start
+                        </button>
+                    </div>
+
+                    <!-- Generate Summaries -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">Generate Summaries</h4>
+                        <p class="text-sm text-gray-600 mb-3">Create shared summaries for topics</p>
+                        <button
+                            id="generateSummariesBtn"
+                            class="w-full bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-colors"
+                        >
+                            <i class="fas fa-file-text mr-2"></i>
+                            Start
+                        </button>
+                    </div>
+
+                    <!-- Full Pipeline -->
+                    <div class="border border-gray-200 rounded-lg p-4">
+                        <h4 class="font-medium text-gray-900 mb-2">Full Pipeline</h4>
+                        <p class="text-sm text-gray-600 mb-3">Run complete analysis pipeline</p>
+                        <button
+                            id="fullPipelineBtn"
+                            class="w-full bg-orange-600 text-white px-4 py-2 rounded-lg hover:bg-orange-700 transition-colors"
+                        >
+                            <i class="fas fa-cogs mr-2"></i>
+                            Start
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Task Results -->
+            <div id="taskResults" class="hidden bg-white rounded-lg shadow-sm p-6">
+                <h3 class="text-lg font-semibold text-gray-900 mb-4">
+                    <i class="fas fa-tasks mr-2"></i>
+                    Task Results
+                </h3>
+                <div id="taskResultsContent"></div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        class TopicManagement {
+            constructor() {
+                this.initializeEventListeners();
+                this.loadData();
+            }
+
+            initializeEventListeners() {
+                document.getElementById('generateEmbeddingsBtn').addEventListener('click', () => this.runTask('generate-embeddings'));
+                document.getElementById('groupTopicsBtn').addEventListener('click', () => this.runTask('group-topics'));
+                document.getElementById('generateSummariesBtn').addEventListener('click', () => this.runTask('generate-summaries'));
+                document.getElementById('fullPipelineBtn').addEventListener('click', () => this.runTask('run-full-pipeline'));
+            }
+
+            async loadData() {
+                await Promise.all([
+                    this.loadStats(),
+                    this.loadSchedulerStatus()
+                ]);
+            }
+
+            async loadStats() {
+                try {
+                    const response = await fetch('/api/topic-management/stats');
+                    const stats = await response.json();
+                    this.displayStats(stats);
+                } catch (error) {
+                    console.error('Error loading stats:', error);
+                    document.getElementById('statsContent').innerHTML = '<p class="text-red-600">Failed to load statistics</p>';
+                }
+            }
+
+            async loadSchedulerStatus() {
+                try {
+                    const response = await fetch('/api/topic-management/scheduler-status');
+                    const status = await response.json();
+                    this.displaySchedulerStatus(status);
+                } catch (error) {
+                    console.error('Error loading scheduler status:', error);
+                    document.getElementById('schedulerContent').innerHTML = '<p class="text-red-600">Failed to load scheduler status</p>';
+                }
+            }
+
+            displayStats(stats) {
+                const statsContent = document.getElementById('statsContent');
+                statsContent.innerHTML = `
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Total Articles:</span>
+                            <span class="font-medium">${stats.articles.total.toLocaleString()}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">With Embeddings:</span>
+                            <span class="font-medium">${stats.articles.with_embeddings.toLocaleString()} (${stats.articles.embedding_coverage.toFixed(1)}%)</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Topic Groups:</span>
+                            <span class="font-medium">${stats.topic_groups.total.toLocaleString()}</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">With Summaries:</span>
+                            <span class="font-medium">${stats.topic_groups.with_summaries.toLocaleString()} (${stats.topic_groups.summary_coverage.toFixed(1)}%)</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="text-sm text-gray-600">Avg Group Size:</span>
+                            <span class="font-medium">${stats.topic_groups.average_size}</span>
+                        </div>
+                    </div>
+                `;
+            }
+
+            displaySchedulerStatus(status) {
+                const schedulerContent = document.getElementById('schedulerContent');
+
+                if (!status.running) {
+                    schedulerContent.innerHTML = '<p class="text-red-600">Scheduler not running</p>';
+                    return;
+                }
+
+                const jobsHtml = status.jobs.map(job => `
+                    <div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-b-0">
+                        <div>
+                            <span class="text-sm font-medium text-gray-900">${job.name}</span>
+                            <br>
+                            <span class="text-xs text-gray-500">Next: ${job.next_run_human || 'Not scheduled'}</span>
+                        </div>
+                        <span class="status-indicator status-running"></span>
+                    </div>
+                `).join('');
+
+                schedulerContent.innerHTML = `
+                    <div class="space-y-2">
+                        <div class="flex items-center mb-3">
+                            <span class="status-indicator status-running"></span>
+                            <span class="text-sm font-medium text-gray-900">Scheduler Running</span>
+                        </div>
+                        ${jobsHtml}
+                    </div>
+                `;
+            }
+
+            async runTask(taskType) {
+                const button = event.target;
+                const originalText = button.innerHTML;
+
+                try {
+                    // Show loading state
+                    button.innerHTML = '<div class="loading-spinner mx-auto"></div>';
+                    button.disabled = true;
+
+                    let endpoint;
+                    switch (taskType) {
+                        case 'generate-embeddings':
+                            endpoint = '/api/topic-management/generate-embeddings';
+                            break;
+                        case 'group-topics':
+                            endpoint = '/api/topic-management/group-topics';
+                            break;
+                        case 'generate-summaries':
+                            endpoint = '/api/topic-management/generate-summaries';
+                            break;
+                        case 'run-full-pipeline':
+                            endpoint = '/api/topic-management/run-full-pipeline';
+                            break;
+                    }
+
+                    const response = await fetch(endpoint, { method: 'POST' });
+                    const result = await response.json();
+
+                    if (result.success) {
+                        this.showTaskResult('success', result.message, result.task_id);
+                    } else {
+                        this.showTaskResult('error', result.message || 'Task failed');
+                    }
+
+                } catch (error) {
+                    console.error('Error running task:', error);
+                    this.showTaskResult('error', 'Failed to start task: ' + error.message);
+                } finally {
+                    // Restore button
+                    button.innerHTML = originalText;
+                    button.disabled = false;
+                }
+            }
+
+            showTaskResult(type, message, taskId = null) {
+                const resultsDiv = document.getElementById('taskResults');
+                const contentDiv = document.getElementById('taskResultsContent');
+
+                const icon = type === 'success' ? 'fas fa-check-circle text-green-500' : 'fas fa-exclamation-circle text-red-500';
+                const bgColor = type === 'success' ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
+                const textColor = type === 'success' ? 'text-green-800' : 'text-red-800';
+
+                contentDiv.innerHTML = `
+                    <div class="${bgColor} border rounded-lg p-4">
+                        <div class="flex items-center">
+                            <i class="${icon} mr-3"></i>
+                            <div>
+                                <p class="${textColor} font-medium">${message}</p>
+                                ${taskId ? `<p class="text-xs text-gray-600 mt-1">Task ID: ${taskId}</p>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                `;
+
+                resultsDiv.classList.remove('hidden');
+
+                // Auto-hide after 10 seconds
+                setTimeout(() => {
+                    resultsDiv.classList.add('hidden');
+                }, 10000);
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            new TopicManagement();
+        });
+    </script>
+</body>
+</html>

@@ -107,6 +107,7 @@ services:
     volumes:
       - "./news-scanner:/app"
       - "./news-scanner/logs:/app/logs"
+      - "./news-scanner/models:/app/models"
     restart: unless-stopped
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=service.name=news-scanner
@@ -142,6 +143,7 @@ services:
     volumes:
       - "./news-scanner:/app"
       - "./news-scanner/logs:/app/logs"
+      - "./news-scanner/models:/app/models"
     restart: unless-stopped
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=service.name=celery-worker
@@ -176,6 +178,7 @@ services:
     volumes:
       - "./news-scanner:/app"
       - "./news-scanner/logs:/app/logs"
+      - "./news-scanner/models:/app/models"
     restart: unless-stopped
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=service.name=celery-beat
@@ -211,6 +214,7 @@ services:
       - "30006:5555"
     volumes:
       - "./news-scanner:/app"
+      - "./news-scanner/models:/app/models"
     restart: unless-stopped
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=service.name=celery-flower
