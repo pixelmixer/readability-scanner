@@ -7,7 +7,15 @@ import os
 from celery import Celery
 from celery.schedules import crontab
 
-# Set up OpenTelemetry logging for Celery BEFORE any logging configuration
+# Configure logging first
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+logger = logging.getLogger(__name__)
+
+# Set up OpenTelemetry logging for Celery
 from opentelemetry import trace
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 from opentelemetry.sdk.trace import TracerProvider
@@ -26,20 +34,19 @@ otlp_exporter = OTLPSpanExporter(
     insecure=True
 )
 
-# Add span processor
-span_processor = BatchSpanProcessor(otlp_exporter)
-trace.get_tracer_provider().add_span_processor(span_processor)
+# Add span processor only if tracer provider supports it
+try:
+    tracer_provider = trace.get_tracer_provider()
+    if hasattr(tracer_provider, 'add_span_processor'):
+        span_processor = BatchSpanProcessor(otlp_exporter)
+        tracer_provider.add_span_processor(span_processor)
+    else:
+        logger.warning("Tracer provider does not support add_span_processor, skipping OTLP configuration")
+except Exception as e:
+    logger.warning(f"Failed to configure OpenTelemetry span processor: {e}")
 
-# Set up OpenTelemetry logging bridge FIRST
+# Set up OpenTelemetry logging bridge AFTER logger is configured
 LoggingInstrumentor().instrument()
-
-# Configure logging AFTER OpenTelemetry logging bridge is set up
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
-
-logger = logging.getLogger(__name__)
 
 # Redis connection URL
 REDIS_URL = os.getenv('REDIS_URL', 'redis://redis:6379/0')

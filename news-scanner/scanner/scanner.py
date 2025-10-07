@@ -88,6 +88,10 @@ class ArticleScanner:
                 # Update statistics based on results
                 self._update_scan_statistics(results, scan_result)
 
+                # Collect new articles for summary generation
+                new_articles = [result for result in results if result.get('_was_new', False)]
+                scan_result.new_articles = new_articles
+
             # Generate diagnosis and warnings
             self._generate_scan_insights(scan_result)
 
@@ -190,10 +194,16 @@ class ArticleScanner:
                     })
 
                     # Perform readability analysis
-                    await self._analyze_and_save_article(content_data)
+                    success, was_new = await self._analyze_and_save_article(content_data)
 
-                    self.logger.debug(f"✅ Successfully processed: {article_url}")
-                    return content_data
+                    if success:
+                        self.logger.debug(f"✅ Successfully processed: {article_url}")
+                        # Add metadata about whether this was a new article
+                        content_data['_was_new'] = was_new
+                        return content_data
+                    else:
+                        self.logger.warning(f"Failed to save article: {article_url}")
+                        return None
 
                 except ContentExtractionError as e:
                     self._record_extraction_error(e, scan_result)
@@ -240,7 +250,7 @@ class ArticleScanner:
         else:
             scan_result.stats.other += 1
 
-    async def _analyze_and_save_article(self, content_data: Dict[str, Any]) -> bool:
+    async def _analyze_and_save_article(self, content_data: Dict[str, Any]) -> tuple[bool, bool]:
         """Analyze article content and save to database."""
         try:
             # Perform readability analysis
@@ -260,13 +270,13 @@ class ArticleScanner:
             from datetime import timezone
             content_data['date'] = datetime.now(timezone.utc)
 
-            # Save to database
-            success = await article_repository.upsert_article(content_data)
-            return success
+            # Save to database and get creation status
+            success, was_new = await article_repository.upsert_article_with_status(content_data)
+            return success, was_new
 
         except Exception as e:
             self.logger.error(f"Error analyzing/saving article: {e}")
-            return False
+            return False, False
 
     def _update_scan_statistics(self, results: List[Dict[str, Any]], scan_result: ScanResult):
         """Update scan statistics based on processing results."""

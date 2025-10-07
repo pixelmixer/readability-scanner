@@ -18,6 +18,7 @@ from utils.date_normalizer import normalize_date, ensure_utc_datetime
 logger = logging.getLogger(__name__)
 
 
+
 class ArticleRepository:
     """Repository for article database operations."""
 
@@ -139,6 +140,62 @@ class ArticleRepository:
         except Exception as e:
             logger.error(f"Error upserting article {article_data.get('url', 'unknown')}: {e}")
             return False
+
+    async def upsert_article_with_status(self, article_data: Dict[str, Any]) -> tuple[bool, bool]:
+        """
+        Insert or update an article using upsert pattern and return creation status.
+
+        Args:
+            article_data: Dictionary containing article data
+
+        Returns:
+            tuple: (success: bool, was_new: bool) - success status and whether article was newly created
+        """
+        try:
+            # Ensure required fields
+            if "url" not in article_data:
+                raise ValueError("Article data must contain 'url' field")
+
+            # Normalize and set dates
+            current_time = ensure_utc_datetime(datetime.now())
+
+            if "publication_date" not in article_data or article_data["publication_date"] is None:
+                # No publication date, use current time
+                article_data["publication_date"] = current_time
+            else:
+                # Normalize publication date to UTC
+                normalized_pub_date = normalize_date(article_data["publication_date"])
+                if normalized_pub_date:
+                    article_data["publication_date"] = normalized_pub_date
+                    article_data["analysis_date"] = current_time
+                else:
+                    # If normalization fails, use current time
+                    logger.warning(f"Failed to normalize publication_date for {article_data.get('url')}, using current time")
+                    article_data["publication_date"] = current_time
+
+            # Extract hostname if not provided
+            if "Host" not in article_data and "url" in article_data:
+                parsed_url = urlparse(str(article_data["url"]))
+                article_data["Host"] = parsed_url.hostname
+
+            # Use upsert to replace existing or insert new
+            result = await self.collection.replace_one(
+                {"url": article_data["url"]},
+                article_data,
+                upsert=True
+            )
+
+            was_new = result.upserted_id is not None
+            if was_new:
+                logger.debug(f"Inserted new article: {article_data['url']}")
+            else:
+                logger.debug(f"Updated existing article: {article_data['url']}")
+
+            return True, was_new
+
+        except Exception as e:
+            logger.error(f"Error upserting article {article_data.get('url', 'unknown')}: {e}")
+            return False, False
 
     async def get_article_by_url(self, url: str) -> Optional[Article]:
         """Get an article by its URL."""

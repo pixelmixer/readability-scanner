@@ -53,6 +53,9 @@ class ScanResult(BaseModel):
     user_agent_used: Optional[str] = Field(None, description="User agent string used for requests")
     diagnosis: Optional[str] = Field(None, description="Automated diagnosis of scan issues")
 
+    # New articles for summary generation
+    new_articles: list[Dict[str, Any]] = Field(default_factory=list, description="Articles that were newly created during this scan")
+
     @property
     def success(self) -> bool:
         """Whether the scan was successful overall."""
