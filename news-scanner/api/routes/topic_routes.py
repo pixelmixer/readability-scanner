@@ -7,8 +7,7 @@ from typing import List, Dict, Any, Optional
 from fastapi import APIRouter, HTTPException, Query, Depends
 from pydantic import BaseModel
 
-from services.vector_service import vector_service
-from services.topic_service import topic_service
+from services.ml_client import ml_client
 from database.connection import get_database
 from motor.motor_asyncio import AsyncIOMotorDatabase
 

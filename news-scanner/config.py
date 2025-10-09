@@ -30,6 +30,9 @@ class Settings(BaseSettings):
     # RSS-Bridge Configuration
     rss_bridge_url: str = "http://rss-bridge:80"
 
+    # ML Service Configuration
+    ml_service_url: str = "http://ml-service:8081"
+
     # Redis Configuration
     redis_url: str = "redis://redis:6379/0"
     celery_broker_url: str = "redis://redis:6379/0"

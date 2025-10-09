@@ -1,4 +1,4 @@
-# Python News Scanner Service Dockerfile
+# Optimized Dockerfile with minimal ML dependencies
 FROM python:3.11-slim
 
 # Set working directory
@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y \
     g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
+# Copy requirements and install dependencies
 COPY requirements.txt .
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir --use-deprecated=legacy-resolver -r requirements.txt
@@ -21,7 +21,7 @@ RUN opentelemetry-bootstrap --action=install
 # Create directories for logs and data
 RUN mkdir -p /app/logs
 
-# Copy application code (after creating directories)
+# Copy application code
 COPY . .
 
 # Set environment variables

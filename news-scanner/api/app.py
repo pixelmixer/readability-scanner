@@ -26,12 +26,16 @@ async def initialize_topic_analysis():
     try:
         logger.info("🔍 Initializing topic analysis system...")
 
-        # Import here to avoid circular imports
-        from services.vector_service import vector_service
+        # Import ML client to check if ML service is available
+        from services.ml_client import ml_client
 
-        # Initialize vector service
-        await vector_service.initialize()
-        logger.info("✓ Vector service initialized")
+        # Check if ML service is healthy
+        is_healthy = await ml_client.health_check()
+        if not is_healthy:
+            logger.warning("⚠️ ML service is not available - topic analysis will be limited")
+            return
+
+        logger.info("✓ ML service is healthy")
 
         # Check if we need to generate embeddings for existing articles
         from database.connection import db_manager

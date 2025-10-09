@@ -23,6 +23,71 @@ class TopicService:
         self.topics_collection_name = "article_topics"
         self.summary_service = SummaryService()
 
+    async def initialize(self):
+        """Initialize the topic service."""
+        try:
+            logger.info("Initializing topic service")
+            # Topic service doesn't need to load heavy models like vector service
+            # Just ensure the summary service is ready
+            logger.info("Topic service initialized successfully")
+        except Exception as e:
+            logger.error(f"Failed to initialize topic service: {e}")
+            raise
+
+    async def analyze_article_topics(self, article_url: str) -> Dict[str, Any]:
+        """
+        Analyze topics for a specific article.
+
+        Args:
+            article_url: URL of the article to analyze
+
+        Returns:
+            Dictionary with topic analysis results
+        """
+        try:
+            logger.info(f"Analyzing topics for article: {article_url}")
+
+            # Get the article from database
+            db = db_manager.get_database()
+            collection = db[self.collection_name]
+
+            article = await collection.find_one({"url": article_url})
+            if not article:
+                return {
+                    "success": False,
+                    "error": f"Article not found: {article_url}",
+                    "topics": [],
+                    "topic_groups": []
+                }
+
+            # Check if article has embedding
+            if not article.get("embedding"):
+                return {
+                    "success": False,
+                    "error": "Article does not have embedding - run embedding generation first",
+                    "topics": [],
+                    "topic_groups": []
+                }
+
+            # For now, return a simple analysis
+            # In a full implementation, this would use the embedding to find similar articles
+            # and determine topic groups
+            return {
+                "success": True,
+                "topics": ["general"],  # Placeholder
+                "topic_groups": [],  # Placeholder
+                "article_url": article_url
+            }
+
+        except Exception as e:
+            logger.error(f"Error analyzing topics for article {article_url}: {e}")
+            return {
+                "success": False,
+                "error": str(e),
+                "topics": [],
+                "topic_groups": []
+            }
+
     async def group_articles_by_topics(
         self,
         similarity_threshold: float = 0.75,

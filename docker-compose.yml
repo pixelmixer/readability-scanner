@@ -73,6 +73,41 @@ services:
         max-file: "3"
         labels: "service=hug-api"
 
+  # ML Service - Dedicated microservice for ML operations
+  ml-service:
+    build:
+      context: ./ml-service/
+      cache_from:
+        - ml-service:latest
+    container_name: ml-service
+    networks:
+      - readable
+    depends_on:
+      - readability-database
+    ports:
+      - "30010:8081"
+    volumes:
+      - ./ml-service/.pip-cache:/root/.cache/pip
+    restart: unless-stopped
+    environment:
+      - OTEL_RESOURCE_ATTRIBUTES=service.name=ml-service
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:30007
+      - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
+      - OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://host.docker.internal:30008/v1/logs
+      - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://host.docker.internal:30008/v1/metrics
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        labels: "service=ml-service"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8081/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
   # Redis for Celery message broker
   redis:
     image: redis:7-alpine
@@ -102,6 +137,7 @@ services:
       - readability
       - rss-bridge
       - redis
+      - ml-service
     ports:
       - "30005:8080"
     volumes:
@@ -140,6 +176,7 @@ services:
       - readability-database
       - readability
       - redis
+      - ml-service
     volumes:
       - "./news-scanner:/app"
       - "./news-scanner/logs:/app/logs"

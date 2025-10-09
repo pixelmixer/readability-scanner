@@ -11,7 +11,7 @@ from .jobs import rss_jobs
 from .jobs import summary_jobs
 from .jobs import backfill_jobs
 from .jobs import reddit_jobs
-from .jobs import topic_analysis_jobs
+from .jobs import topic_analysis_jobs_ml
 
 # Re-export commonly used utilities for backward compatibility
 from .jobs.base_task import CallbackTask as BaseTask, ensure_database_connection
@@ -35,8 +35,8 @@ from .jobs.reddit_jobs import (
     reddit_backfill_task,
     reddit_backfill_stats_task
 )
-# Import topic analysis functions
-from .jobs.topic_analysis_jobs import (
+# Import topic analysis functions from ML service jobs
+from .jobs.topic_analysis_jobs_ml import (
     generate_article_embedding as _generate_article_embedding,
     batch_generate_embeddings as _batch_generate_embeddings,
     group_articles_by_topics as _group_articles_by_topics,
