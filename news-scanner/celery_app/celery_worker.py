@@ -71,6 +71,13 @@ celery_app.conf.update(
         'celery_app.tasks.backfill_publication_dates_task': {'queue': 'low'},
         'celery_app.tasks.reddit_backfill_task': {'queue': 'low'},
         'celery_app.tasks.reddit_backfill_stats_task': {'queue': 'low'},
+        # Topic analysis tasks
+        'celery_app.tasks.generate_article_embedding': {'queue': 'normal'},
+        'celery_app.tasks.batch_generate_embeddings': {'queue': 'low'},
+        'celery_app.tasks.group_articles_by_topics': {'queue': 'low'},
+        'celery_app.tasks.generate_shared_summaries': {'queue': 'low'},
+        'celery_app.tasks.process_new_article': {'queue': 'normal'},
+        'celery_app.tasks.full_topic_analysis_pipeline': {'queue': 'low'},
     },
 
     # Task priority settings
