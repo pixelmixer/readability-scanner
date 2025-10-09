@@ -15,45 +15,60 @@
     </head>
 
     <body>
-        <!-- Navigation -->
-        <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="/sources">
-                    <i class="fas fa-rss"></i> News Analysis
+        <!-- Modern Navigation -->
+        <nav class="navbar navbar-expand-lg navbar-modern sticky-top">
+            <div class="container-fluid px-3 px-md-4">
+                <a class="navbar-brand d-flex align-items-center gap-2" href="/sources">
+                    <div class="d-flex align-items-center justify-content-center w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600" style="border-radius: 0;">
+                        <i class="fas fa-rss text-white text-sm"></i>
+                    </div>
+                    <span class="fw-bold">News Analysis</span>
                 </a>
-                <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav">
-                    <span class="navbar-toggler-icon"></span>
+
+                <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <div class="d-flex flex-column gap-1">
+                        <div class="w-6 h-0.5 bg-current"></div>
+                        <div class="w-6 h-0.5 bg-current"></div>
+                        <div class="w-6 h-0.5 bg-current"></div>
+                    </div>
                 </button>
+
                 <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav">
+                    <ul class="navbar-nav ms-auto">
                         <li class="nav-item">
-                            <a class="nav-link" href="/sources">
-                                <i class="fas fa-cog"></i> Sources
+                            <a class="nav-link d-flex align-items-center gap-2" href="/sources">
+                                <i class="fas fa-cog"></i>
+                                <span>Sources</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/daily">
-                                <i class="fas fa-calendar-day"></i> Daily Report
+                            <a class="nav-link d-flex align-items-center gap-2" href="/daily">
+                                <i class="fas fa-calendar-day"></i>
+                                <span>Daily Report</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/graph">
-                                <i class="fas fa-chart-line"></i> Graph View
+                            <a class="nav-link d-flex align-items-center gap-2" href="/graph">
+                                <i class="fas fa-chart-line"></i>
+                                <span>Graph View</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/export">
-                                <i class="fas fa-download"></i> Export
+                            <a class="nav-link d-flex align-items-center gap-2" href="/export">
+                                <i class="fas fa-download"></i>
+                                <span>Export</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/summaries-page">
-                                <i class="fas fa-file-text"></i> Summaries
+                            <a class="nav-link d-flex align-items-center gap-2" href="/summaries-page">
+                                <i class="fas fa-file-text"></i>
+                                <span>Summaries</span>
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="/newspaper">
-                                <i class="fas fa-newspaper"></i> Today's News
+                            <a class="nav-link d-flex align-items-center gap-2 active" href="/newspaper">
+                                <i class="fas fa-newspaper"></i>
+                                <span>Today's News</span>
                             </a>
                         </li>
                     </ul>
@@ -61,9 +76,9 @@
             </div>
         </nav>
 
-        <main class="mt-4">
-            <div class="container-fluid p-0">
-                <div class="col">
+        <main class="main-content">
+            <div class="container-fluid px-0 px-md-2 py-4">
+                <div class="content-wrapper">
                     {% block content %}{% endblock %}
                 </div>
             </div>
