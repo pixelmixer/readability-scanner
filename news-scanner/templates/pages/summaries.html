@@ -533,7 +533,7 @@ function triggerJob(jobType, endpoint, data = {}) {
 
     button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Starting...');
 
-    $.post(endpoint, data)
+    $.post(`/api${endpoint}`, data)
         .done(function(response) {
             if (response.success) {
                 addJobToHistory(jobType, response.task_id, 'PENDING');

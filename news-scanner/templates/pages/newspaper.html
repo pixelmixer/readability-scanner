@@ -48,7 +48,7 @@
                         </h3>
                     </div>
                     <div class="card-body p-0">
-                        <div id="main-headlines" class="row">
+                        <div id="main-headlines" class="row main-headlines-row">
                             <!-- Main headlines will be populated here -->
                         </div>
                     </div>
@@ -112,6 +112,62 @@
     width: 100% !important;
     max-width: 100% !important;
 }
+
+/* Expanded article styling - applied via JavaScript */
+.expanded-card {
+    background-color: var(--bg-secondary) !important;
+    border-radius: var(--radius-lg) !important;
+    box-shadow: var(--shadow-md) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Dark mode support for expanded cards */
+@media (prefers-color-scheme: dark) {
+    .expanded-card {
+        background-color: #334155 !important; /* Darker background for dark mode */
+        color: #f8fafc !important; /* Light text for dark mode */
+    }
+
+    .expanded-card .card-title,
+    .expanded-card .text-muted,
+    .expanded-card .badge {
+        color: #e2e8f0 !important; /* Light text for dark mode */
+    }
+
+    .expanded-card .full-content {
+        background-color: #1e293b !important; /* Even darker for full content area */
+        color: #f1f5f9 !important;
+    }
+}
+
+/* Full content styling */
+.full-content {
+    background-color: var(--bg-primary);
+    border-radius: var(--radius-md);
+    padding: var(--spacing-lg);
+    margin-top: var(--spacing-md);
+    color: var(--text-primary);
+}
+
+.full-content .card-text {
+    line-height: 1.7;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+/* Dark mode support for full content */
+@media (prefers-color-scheme: dark) {
+    .full-content {
+        background-color: #1e293b !important;
+        color: #f1f5f9 !important;
+    }
+
+    .full-content .card-text {
+        color: #f1f5f9 !important;
+    }
+}
+
+/* Full width expanded articles - styling handled by .expanded-card class */
 
 /* Remove left and right borders from article cards */
 .card {
@@ -206,8 +262,11 @@ function showError(message) {
 
             // Header is now static - no dynamic updates needed
 
-            // Articles are pre-sorted by MongoDB query (newest first)
-            console.log(`📰 Displaying ${articles.length} articles (pre-sorted by MongoDB)`);
+    // Articles are pre-sorted by MongoDB query (newest first)
+    console.log(`📰 Displaying ${articles.length} articles (pre-sorted by MongoDB)`);
+
+    // Track expanded articles
+    window.expandedArticles = new Set();
 
     // Helper function to get display content (summary or fallback to content)
     function getDisplayContent(article) {
@@ -447,25 +506,290 @@ function toggleArticleContent(articleId) {
     const text = $('#' + articleId + '-text');
     const cardBody = contentDiv.closest('.card-body');
     const fullContentDiv = cardBody.find('.full-content');
+    const cardText = cardBody.find('.card-text');
+    const articleCard = contentDiv.closest('.card');
+    // Find the container by looking for Bootstrap column classes
+    const articleContainer = articleCard.closest('[class*="col-"]');
 
     if (contentDiv.hasClass('expanded')) {
-        // Collapse - hide full content and show truncated content
+        // Collapse - hide full content and show preview content, restore layout
         if (fullContentDiv.length > 0) {
             fullContentDiv.hide();
         }
+        // Show the preview content (article-content)
+        contentDiv.show();
         contentDiv.removeClass('expanded');
         contentDiv.css('max-height', '200px').css('overflow', 'hidden');
+        // Remove visual styling from the card
+        articleCard.removeClass('expanded-card');
         icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
         text.text('Show Full Article');
+
+        // Remove from expanded set and restore layout
+        window.expandedArticles.delete(articleId);
+        console.log('Calling restoreArticleLayout for:', articleContainer.attr('class'));
+        restoreArticleLayout(articleContainer, articleCard);
+
     } else {
-        // Expand - show full content if available
+        // Collapse all other expanded articles first
+        const currentExpandedArticles = [...window.expandedArticles];
+        window.expandedArticles.clear();
+
+        currentExpandedArticles.forEach(expandedId => {
+            if (expandedId !== articleId) {
+                const expandedContentDiv = $('#' + expandedId);
+                const expandedIcon = $('#' + expandedId + '-icon');
+                const expandedText = $('#' + expandedId + '-text');
+                const expandedCard = expandedContentDiv.closest('.card');
+                const expandedContainer = expandedCard.closest('[class*="col-"]');
+                const expandedCardBody = expandedContentDiv.closest('.card-body');
+                const expandedFullContentDiv = expandedCardBody.find('.full-content');
+                const expandedCardText = expandedCardBody.find('.card-text');
+
+                if (expandedFullContentDiv.length > 0) {
+                    expandedFullContentDiv.hide();
+                }
+                // Show the preview content for other collapsed articles
+                expandedContentDiv.show();
+                expandedContentDiv.removeClass('expanded');
+                expandedContentDiv.css('max-height', '200px').css('overflow', 'hidden');
+                // Remove visual styling from other collapsed cards
+                expandedCard.removeClass('expanded-card');
+                expandedIcon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
+                expandedText.text('Show Full Article');
+
+                // Restore layout for other expanded articles
+                if (expandedContainer.length > 0) {
+                    restoreArticleLayout(expandedContainer, expandedCard);
+                }
+            }
+        });
+
+        // Re-add the current article to the expanded set
+        window.expandedArticles.add(articleId);
+
+        // Expand - hide preview content, show full content and modify layout
+        // Hide the preview content (article-content)
+        contentDiv.hide();
         if (fullContentDiv.length > 0) {
             fullContentDiv.show();
         }
         contentDiv.addClass('expanded');
         contentDiv.css('max-height', 'none').css('overflow', 'visible');
+        // Add visual styling to the card
+        articleCard.addClass('expanded-card');
         icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
         text.text('Hide Full Article');
+
+        // Add to expanded set and modify layout
+        window.expandedArticles.add(articleId);
+        expandArticleLayout(articleContainer, articleCard);
+    }
+}
+
+// Layout management functions
+function expandArticleLayout(articleContainer, articleCard) {
+    const row = articleContainer.closest('.row');
+
+    // Store original classes for restoration
+    articleContainer.data('original-classes', articleContainer.attr('class'));
+
+    if (row.hasClass('main-headlines-row')) {
+        // Main headlines row - reorganize layout
+        const mainArticle = row.find('.col-md-8');
+        const secondaryArticles = row.find('.col-md-4');
+
+        // Store original classes for all containers in this row BEFORE any modifications
+        const allContainers = row.find('.col-md-8, .col-md-4');
+        allContainers.each(function() {
+            const container = $(this);
+            if (!container.data('original-classes')) {
+                container.data('original-classes', container.attr('class'));
+            }
+        });
+
+        // Store the original HTML structure of the row for complete restoration
+        if (!row.data('original-html')) {
+            row.data('original-html', row.html());
+        }
+
+        // Store references to all containers for restoration
+        const allContainersForReference = row.find('.col-md-8, .col-md-4');
+        row.data('all-containers', allContainersForReference);
+
+        // Store original classes BEFORE making any modifications
+        const allContainersToModify = row.find('.col-md-8, .col-md-4');
+        allContainersToModify.each(function() {
+            const container = $(this);
+            if (!container.data('original-classes')) {
+                container.data('original-classes', container.attr('class'));
+            }
+        });
+
+        if (articleContainer.hasClass('col-md-8')) {
+            // Expanding the main article - move secondary articles below
+            mainArticle.removeClass('col-md-8').addClass('col-12');
+            // Add a new row below for secondary articles
+            const secondaryRow = $('<div class="row mt-3"></div>');
+            secondaryArticles.each(function() {
+                const secondaryCard = $(this).find('.card');
+                $(this).removeClass('col-md-4').addClass('col-md-6 col-lg-4');
+                secondaryRow.append($(this));
+            });
+            row.after(secondaryRow);
+            row.data('secondary-row', secondaryRow);
+        } else {
+            // Expanding a secondary article - move it to full width, keep main article
+            articleContainer.removeClass('col-md-4').addClass('col-12');
+            mainArticle.removeClass('col-md-8').addClass('col-12');
+        }
+
+        // Update stored references
+        row.data('main-article', mainArticle);
+        row.data('secondary-articles', secondaryArticles);
+    } else {
+        // Additional articles grid - reorganize layout within the row
+        const allContainersInRow = row.find('.col-md-6, .col-lg-4');
+
+        // Store original classes for all containers in this row
+        allContainersInRow.each(function() {
+            const container = $(this);
+            if (!container.data('original-classes')) {
+                container.data('original-classes', container.attr('class'));
+            }
+        });
+
+        const currentIndex = allContainersInRow.index(articleContainer);
+
+        if (allContainersInRow.length === 2) {
+            // Two articles in row - make expanded one larger, keep other visible
+            allContainersInRow.each(function(index) {
+                const container = $(this);
+                const originalClasses = container.data('original-classes');
+                if (originalClasses) {
+                    container.attr('class', originalClasses);
+                }
+
+                if (index === currentIndex) {
+                    container.removeClass('col-md-6 col-lg-4').addClass('col-12');
+                } else {
+                    container.removeClass('col-md-6 col-lg-4').addClass('col-12');
+                }
+            });
+        } else if (allContainersInRow.length === 3) {
+            // Three articles in row - make expanded one full width, move others to new row
+            const expandedCard = articleContainer.find('.card');
+            const otherCards = allContainersInRow.not(articleContainer).find('.card');
+
+            // Restore original classes first
+            allContainersInRow.each(function() {
+                const container = $(this);
+                const originalClasses = container.data('original-classes');
+                if (originalClasses) {
+                    container.attr('class', originalClasses);
+                }
+            });
+
+            // Create new row for other articles
+            const otherRow = $('<div class="row mt-3"></div>');
+            otherCards.each(function() {
+                const cardContainer = $(this).closest('.col-md-6, .col-lg-4');
+                cardContainer.removeClass('col-md-6 col-lg-4').addClass('col-md-6 col-lg-4');
+                otherRow.append(cardContainer);
+            });
+
+            // Make expanded article full width
+            articleContainer.removeClass('col-md-6 col-lg-4').addClass('col-12');
+
+            // Store reference and add new row
+            row.data('other-row', otherRow);
+            row.after(otherRow);
+        } else {
+            // Single article or other cases - just make it full width
+            const originalClasses = articleContainer.data('original-classes');
+            if (originalClasses) {
+                articleContainer.attr('class', originalClasses);
+            }
+            articleContainer.removeClass('col-md-6 col-lg-4').addClass('col-12');
+        }
+    }
+}
+
+function restoreArticleLayout(articleContainer, articleCard) {
+    const row = articleContainer.closest('.row');
+
+    if (row.hasClass('main-headlines-row')) {
+        console.log('Restoring main headlines row');
+
+        // Find all containers in this row that have Bootstrap column classes
+        const allContainersInRow = row.find('[class*="col-"]');
+
+        // Restore original classes for all containers
+        allContainersInRow.each(function() {
+            const container = $(this);
+            const originalClasses = container.data('original-classes');
+            if (originalClasses) {
+                console.log('Restoring container classes:', originalClasses);
+                container.attr('class', originalClasses);
+            }
+        });
+
+        // Restore secondary articles to original row
+        const secondaryRow = row.data('secondary-row');
+        if (secondaryRow) {
+            console.log('Moving secondary articles back to main row');
+            const secondaryArticles = secondaryRow.find('[class*="col-"]');
+            secondaryArticles.each(function() {
+                // Restore original classes for secondary articles
+                const container = $(this);
+                const originalClasses = container.data('original-classes');
+                if (originalClasses) {
+                    container.attr('class', originalClasses);
+                }
+                row.append($(this));
+            });
+            secondaryRow.remove();
+            row.removeData('secondary-row');
+        }
+
+        // Show all cards
+        row.find('.card').show();
+    } else {
+        console.log('Restoring additional articles grid');
+
+        // Additional articles grid - restore original layout for all containers
+        const allContainersInRow = row.find('[class*="col-"]');
+
+        // Restore original classes for all containers
+        allContainersInRow.each(function() {
+            const container = $(this);
+            const originalClasses = container.data('original-classes');
+            if (originalClasses) {
+                console.log('Restoring container classes:', originalClasses);
+                container.attr('class', originalClasses);
+            }
+        });
+
+        // Remove any additional rows that were created
+        const otherRow = row.data('other-row');
+        if (otherRow) {
+            console.log('Moving articles back from other row');
+            const otherContainers = otherRow.find('[class*="col-"]');
+            otherContainers.each(function() {
+                // Restore original classes for moved containers
+                const container = $(this);
+                const originalClasses = container.data('original-classes');
+                if (originalClasses) {
+                    container.attr('class', originalClasses);
+                }
+                row.append($(this));
+            });
+            otherRow.remove();
+            row.removeData('other-row');
+        }
+
+        // Show all cards
+        row.find('.card').show();
     }
 }
 
