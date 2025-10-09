@@ -85,6 +85,78 @@ class MLServiceClient:
             logger.error(f"Error generating embedding: {e}")
             return None
 
+    def generate_embedding_sync(self, text: str, article_id: str = None) -> Optional[List[float]]:
+        """
+        Synchronous version of generate_embedding for use in Celery tasks.
+
+        Args:
+            text: Text to generate embedding for
+            article_id: Optional article ID
+
+        Returns:
+            Embedding vector or None if failed
+        """
+        import requests
+        import time
+
+        max_retries = 3
+        retry_delay = 1
+
+        for attempt in range(max_retries):
+            try:
+                # First check if ML service is healthy
+                try:
+                    health_response = requests.get(f"{self.ml_service_url}/health", timeout=5)
+                    if health_response.status_code != 200:
+                        logger.warning(f"ML service health check failed (attempt {attempt + 1}/{max_retries})")
+                        if attempt < max_retries - 1:
+                            time.sleep(retry_delay)
+                            continue
+                        return None
+                except Exception as health_e:
+                    logger.warning(f"ML service health check exception (attempt {attempt + 1}/{max_retries}): {health_e}")
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+                        continue
+                    return None
+
+                logger.info(f"Calling ML service for embedding, text length: {len(text)}, article_id: {article_id}")
+                payload = {
+                    "text": text,
+                    "article_id": article_id
+                }
+
+                response = requests.post(
+                    f"{self.ml_service_url}/embeddings/generate",
+                    json=payload,
+                    timeout=30
+                )
+
+                logger.info(f"ML service response status: {response.status_code}")
+                if response.status_code == 200:
+                    data = response.json()
+                    embedding = data.get("embedding")
+                    if embedding:
+                        logger.info(f"Successfully generated embedding with {len(embedding)} dimensions")
+                        return embedding
+                    else:
+                        logger.error("No embedding in successful response")
+                        return None
+                else:
+                    logger.error(f"Failed to generate embedding: HTTP {response.status_code} - {response.text}")
+                    return None
+
+            except Exception as e:
+                logger.error(f"Exception during embedding generation (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                import traceback
+                logger.error(f"Final exception traceback: {traceback.format_exc()}")
+                return None
+
+        return None
+
     async def batch_generate_embeddings(self, batch_size: int = 100) -> Dict[str, Any]:
         """
         Generate embeddings for multiple articles.

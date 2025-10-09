@@ -26,12 +26,11 @@ class TopicAnalysisTask(BaseTask):
 
 def generate_article_embedding_sync(article_url: str) -> Dict[str, Any]:
     """Synchronous wrapper for generate_article_embedding."""
-    import asyncio
-    return asyncio.run(generate_article_embedding(article_url))
+    return generate_article_embedding_sync_complete(article_url)
 
-async def generate_article_embedding(article_url: str) -> Dict[str, Any]:
+def generate_article_embedding_sync_complete(article_url: str) -> Dict[str, Any]:
     """
-    Generate embedding for a single article using ML service.
+    Completely synchronous version of generate_article_embedding for Celery.
 
     Args:
         article_url: URL of the article to process
@@ -39,22 +38,26 @@ async def generate_article_embedding(article_url: str) -> Dict[str, Any]:
     Returns:
         Dictionary with processing results
     """
+    import asyncio
+    from database.connection import db_manager
+    from services.ml_client import ml_client
+
+    # Create a new event loop for this task
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
     try:
         logger.info(f"Generating embedding for article: {article_url}")
 
-        # Import ML client
-        from services.ml_client import ml_client
-
         # Ensure database connection is established
         from .base_task import ensure_database_connection
-        await ensure_database_connection()
+        loop.run_until_complete(ensure_database_connection())
 
         # Get article from database
-        from database.connection import db_manager
         db = db_manager.get_database()
         collection = db["documents"]
 
-        article = await collection.find_one({"url": article_url})
+        article = loop.run_until_complete(collection.find_one({"url": article_url}))
         if not article:
             return {
                 "success": False,
@@ -82,8 +85,8 @@ async def generate_article_embedding(article_url: str) -> Dict[str, Any]:
                 "article_url": article_url
             }
 
-        # Generate embedding via ML service
-        embedding = await ml_client.generate_embedding(text, article_url)
+        # Generate embedding via ML service (synchronous version for Celery)
+        embedding = ml_client.generate_embedding_sync(text, article_url)
         if embedding is None:
             return {
                 "success": False,
@@ -92,7 +95,7 @@ async def generate_article_embedding(article_url: str) -> Dict[str, Any]:
             }
 
         # Store embedding in database
-        result = await collection.update_one(
+        result = loop.run_until_complete(collection.update_one(
             {"url": article_url},
             {
                 "$set": {
@@ -101,7 +104,7 @@ async def generate_article_embedding(article_url: str) -> Dict[str, Any]:
                     "embedding_model": "all-MiniLM-L6-v2"
                 }
             }
-        )
+        ))
 
         if result.modified_count == 0:
             return {
@@ -125,12 +128,37 @@ async def generate_article_embedding(article_url: str) -> Dict[str, Any]:
             "error": str(e),
             "article_url": article_url
         }
+    finally:
+        loop.close()
+
+async def generate_article_embedding(article_url: str) -> Dict[str, Any]:
+    """
+    Generate embedding for a single article using ML service.
+
+    Args:
+        article_url: URL of the article to process
+
+    Returns:
+        Dictionary with processing results
+    """
+    # For async contexts, delegate to the sync version wrapped in asyncio
+    import asyncio
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(None, generate_article_embedding_sync_complete, article_url)
 
 
 def batch_generate_embeddings_sync(batch_size: int = 100) -> Dict[str, Any]:
     """Synchronous wrapper for batch_generate_embeddings."""
     import asyncio
-    return asyncio.run(batch_generate_embeddings(batch_size))
+
+    # Create a new event loop for this task (proper way for Celery)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        return loop.run_until_complete(batch_generate_embeddings(batch_size))
+    finally:
+        loop.close()
 
 async def batch_generate_embeddings(batch_size: int = 100) -> Dict[str, Any]:
     """
@@ -175,7 +203,15 @@ def group_articles_by_topics_sync(
 ) -> Dict[str, Any]:
     """Synchronous wrapper for group_articles_by_topics."""
     import asyncio
-    return asyncio.run(group_articles_by_topics(similarity_threshold, min_group_size))
+
+    # Create a new event loop for this task (proper way for Celery)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        return loop.run_until_complete(group_articles_by_topics(similarity_threshold, min_group_size))
+    finally:
+        loop.close()
 
 async def group_articles_by_topics(
     similarity_threshold: float = 0.75,
@@ -219,7 +255,15 @@ async def group_articles_by_topics(
 def generate_shared_summaries_sync() -> Dict[str, Any]:
     """Synchronous wrapper for generate_shared_summaries."""
     import asyncio
-    return asyncio.run(generate_shared_summaries())
+
+    # Create a new event loop for this task (proper way for Celery)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        return loop.run_until_complete(generate_shared_summaries())
+    finally:
+        loop.close()
 
 async def generate_shared_summaries() -> Dict[str, Any]:
     """
@@ -286,7 +330,15 @@ async def generate_shared_summaries() -> Dict[str, Any]:
 def process_new_article_sync(article_url: str) -> Dict[str, Any]:
     """Synchronous wrapper for process_new_article."""
     import asyncio
-    return asyncio.run(process_new_article(article_url))
+
+    # Create a new event loop for this task (proper way for Celery)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        return loop.run_until_complete(process_new_article(article_url))
+    finally:
+        loop.close()
 
 async def process_new_article(article_url: str) -> Dict[str, Any]:
     """
@@ -331,7 +383,15 @@ async def process_new_article(article_url: str) -> Dict[str, Any]:
 def full_topic_analysis_pipeline_sync() -> Dict[str, Any]:
     """Synchronous wrapper for full_topic_analysis_pipeline."""
     import asyncio
-    return asyncio.run(full_topic_analysis_pipeline())
+
+    # Create a new event loop for this task (proper way for Celery)
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+
+    try:
+        return loop.run_until_complete(full_topic_analysis_pipeline())
+    finally:
+        loop.close()
 
 async def full_topic_analysis_pipeline() -> Dict[str, Any]:
     """
