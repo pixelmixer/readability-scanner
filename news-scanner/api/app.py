@@ -171,7 +171,7 @@ def register_routes(app: FastAPI):
     """Register all application routes."""
 
     # Import route modules
-    from .routes import sources, daily, graph, export, scan, summaries, topic_routes, topic_management_routes
+    from .routes import sources, daily, graph, export, scan, summaries, topic_routes, topic_management_routes, article_search_routes
 
     # Include route modules with /api prefix
     app.include_router(sources.router, prefix="/api/sources", tags=["sources"])
@@ -182,6 +182,7 @@ def register_routes(app: FastAPI):
     app.include_router(summaries.router, prefix="/api/summaries", tags=["summaries"])
     app.include_router(topic_routes.router, tags=["topics"])
     app.include_router(topic_management_routes.router, tags=["topic-management"])
+    app.include_router(article_search_routes.router, tags=["articles"])
 
     # Web page routes (without /api prefix)
     @app.get("/", include_in_schema=False)
@@ -304,6 +305,18 @@ def register_routes(app: FastAPI):
         return templates.TemplateResponse("pages/article_viewer.html", {
             "request": request,
             "title": "Article Viewer"
+        })
+
+    # Article search page
+    @app.get("/article-search", include_in_schema=False)
+    async def article_search_page(request: Request):
+        """Serve the article search page for free text search."""
+        from fastapi.templating import Jinja2Templates
+
+        templates = Jinja2Templates(directory="templates")
+        return templates.TemplateResponse("pages/article_search.html", {
+            "request": request,
+            "title": "Article Search"
         })
 
     # Topic management page

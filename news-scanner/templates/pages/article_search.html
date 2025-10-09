@@ -1,0 +1,454 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article Search - {{ title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .article-card {
+            transition: all 0.3s ease;
+        }
+        .article-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        }
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .highlight {
+            background-color: #fef3c7;
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-4">
+                    <div class="flex items-center">
+                        <a href="/" class="text-xl font-bold text-gray-900">
+                            <i class="fas fa-newspaper mr-2"></i>
+                            News Analyzer
+                        </a>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="/sources" class="text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-rss mr-1"></i>
+                            Sources
+                        </a>
+                        <a href="/article-viewer" class="text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-search-plus mr-1"></i>
+                            Similar Articles
+                        </a>
+                        <a href="/daily" class="text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-chart-line mr-1"></i>
+                            Daily Report
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Search Input -->
+            <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+                <h2 class="text-2xl font-bold text-gray-900 mb-4">
+                    <i class="fas fa-search mr-2"></i>
+                    Search Articles
+                </h2>
+                <div class="flex space-x-4">
+                    <div class="flex-1">
+                        <input
+                            type="text"
+                            id="searchQuery"
+                            placeholder="Search articles by title, content, or keywords..."
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <label for="limit" class="text-sm text-gray-600">Results:</label>
+                        <select id="limit" class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="100">100</option>
+                        </select>
+                    </div>
+                    <button
+                        id="searchBtn"
+                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                    >
+                        <i class="fas fa-search mr-2"></i>
+                        Search
+                    </button>
+                </div>
+                <div class="mt-4 text-sm text-gray-600">
+                    <p><strong>Tips:</strong> Use quotes for exact phrases, combine terms with AND/OR, or search for specific keywords.</p>
+                </div>
+            </div>
+
+            <!-- Loading State -->
+            <div id="loadingState" class="hidden text-center py-12">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-600">Searching articles...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="errorState" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>
+                    <div>
+                        <h3 class="text-lg font-medium text-red-800">Error</h3>
+                        <p id="errorMessage" class="text-red-600 mt-1"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Search Results -->
+            <div id="resultsContainer" class="hidden">
+                <!-- Search Summary -->
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <h3 class="text-lg font-semibold text-gray-900">
+                                <i class="fas fa-list mr-2"></i>
+                                Search Results
+                            </h3>
+                            <p id="searchSummary" class="text-gray-600 mt-1"></p>
+                        </div>
+                        <div class="text-sm text-gray-500">
+                            <span id="searchTime"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Articles List -->
+                <div class="bg-white rounded-lg shadow-sm">
+                    <div id="articlesList" class="divide-y divide-gray-200">
+                        <!-- Articles will be populated here -->
+                    </div>
+
+                    <!-- Pagination -->
+                    <div id="paginationContainer" class="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                        <!-- Pagination controls will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="hidden text-center py-16">
+                <i class="fas fa-search text-6xl text-gray-300 mb-6"></i>
+                <h3 class="text-xl font-medium text-gray-900 mb-2">No articles found</h3>
+                <p class="text-gray-600">Try adjusting your search terms or check your spelling.</p>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        class ArticleSearch {
+            constructor() {
+                this.currentPage = 1;
+                this.totalPages = 1;
+                this.searchQuery = '';
+                this.limit = 25;
+                this.initializeEventListeners();
+                this.checkUrlParams();
+            }
+
+            initializeEventListeners() {
+                const searchBtn = document.getElementById('searchBtn');
+                const searchQueryInput = document.getElementById('searchQuery');
+                const limitSelect = document.getElementById('limit');
+
+                searchBtn.addEventListener('click', () => this.performSearch());
+                searchQueryInput.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') {
+                        this.performSearch();
+                    }
+                });
+                limitSelect.addEventListener('change', (e) => {
+                    this.limit = parseInt(e.target.value);
+                    if (this.searchQuery.trim()) {
+                        this.performSearch();
+                    }
+                });
+            }
+
+            checkUrlParams() {
+                const urlParams = new URLSearchParams(window.location.search);
+                const query = urlParams.get('q');
+                if (query) {
+                    document.getElementById('searchQuery').value = query;
+                    this.performSearch();
+                }
+            }
+
+            async performSearch(page = 1) {
+                const query = document.getElementById('searchQuery').value.trim();
+                if (!query) {
+                    this.showError('Please enter a search query');
+                    return;
+                }
+
+                this.searchQuery = query;
+                this.currentPage = page;
+                this.showLoading();
+                this.hideError();
+                this.hideResults();
+                this.hideEmptyState();
+
+                const startTime = Date.now();
+
+                try {
+                    const response = await fetch(`/api/articles/search?q=${encodeURIComponent(query)}&page=${page}&limit=${this.limit}`);
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Search failed');
+                    }
+
+                    const data = await response.json();
+                    const searchTime = Date.now() - startTime;
+
+                    this.displayResults(data, searchTime);
+
+                } catch (error) {
+                    console.error('Search error:', error);
+                    this.showError(error.message);
+                } finally {
+                    this.hideLoading();
+                }
+            }
+
+            displayResults(data, searchTime) {
+                this.displaySearchSummary(data, searchTime);
+                this.displayArticles(data.articles);
+                this.displayPagination(data);
+                this.showResults();
+                this.updateUrl();
+            }
+
+            displaySearchSummary(data, searchTime) {
+                const summaryDiv = document.getElementById('searchSummary');
+                const timeDiv = document.getElementById('searchTime');
+
+                summaryDiv.textContent = `"${this.searchQuery}" - ${data.total} results found`;
+                timeDiv.textContent = `Search took ${(searchTime / 1000).toFixed(2)}s`;
+            }
+
+            displayArticles(articles) {
+                const articlesDiv = document.getElementById('articlesList');
+
+                if (articles.length === 0) {
+                    this.showEmptyState();
+                    return;
+                }
+
+                articlesDiv.innerHTML = articles.map(article => `
+                    <div class="article-card p-6 hover:bg-gray-50">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <h4 class="text-lg font-semibold text-gray-900 mb-2">
+                                    <a href="${article.url}" target="_blank" class="hover:text-blue-600">
+                                        ${this.highlightText(article.title, this.searchQuery)}
+                                    </a>
+                                </h4>
+                                <p class="text-gray-700 mb-3 leading-relaxed">
+                                    ${this.highlightText(article.preview || 'No preview available', this.searchQuery)}
+                                </p>
+                                <div class="flex items-center text-sm text-gray-500 space-x-4">
+                                    <span><i class="fas fa-globe mr-1"></i>${article.host || 'Unknown'}</span>
+                                    ${article.publication_date ? `<span><i class="fas fa-calendar mr-1"></i>${new Date(article.publication_date).toLocaleDateString()}</span>` : ''}
+                                    ${article.readability_score ? `<span><i class="fas fa-brain mr-1"></i>Readability: ${article.readability_score.toFixed(1)}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="ml-4 flex flex-col items-end space-y-2">
+                                <a href="${article.url}" target="_blank" class="inline-flex items-center px-3 py-1 bg-blue-100 text-blue-800 text-sm rounded-full hover:bg-blue-200">
+                                    <i class="fas fa-external-link-alt mr-1"></i>
+                                    View Article
+                                </a>
+                                <a href="/article-viewer" class="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full hover:bg-green-200"
+                                   onclick="event.preventDefault(); window.open('/article-viewer', '_blank'); document.dispatchEvent(new CustomEvent('similarSearch', {detail: {url: '${article.url}'}}));">
+                                    <i class="fas fa-search-plus mr-1"></i>
+                                    Find Similar
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            displayPagination(data) {
+                const paginationDiv = document.getElementById('paginationContainer');
+                this.totalPages = Math.ceil(data.total / this.limit);
+
+                if (this.totalPages <= 1) {
+                    paginationDiv.innerHTML = '';
+                    return;
+                }
+
+                let paginationHtml = '<div class="flex items-center justify-between">';
+
+                // Previous button
+                paginationHtml += `
+                    <button ${this.currentPage <= 1 ? 'disabled class="opacity-50 cursor-not-allowed"' : 'class="hover:bg-gray-200"'}
+                            onclick="articleSearch.goToPage(${this.currentPage - 1})"
+                            class="px-3 py-1 border border-gray-300 rounded text-sm">
+                        <i class="fas fa-chevron-left mr-1"></i>
+                        Previous
+                    </button>
+                `;
+
+                // Page numbers
+                paginationHtml += '<div class="flex space-x-1">';
+
+                const startPage = Math.max(1, this.currentPage - 2);
+                const endPage = Math.min(this.totalPages, this.currentPage + 2);
+
+                if (startPage > 1) {
+                    paginationHtml += `<button onclick="articleSearch.goToPage(1)" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-200">1</button>`;
+                    if (startPage > 2) {
+                        paginationHtml += '<span class="px-2 py-1 text-gray-500">...</span>';
+                    }
+                }
+
+                for (let i = startPage; i <= endPage; i++) {
+                    paginationHtml += `
+                        <button onclick="articleSearch.goToPage(${i})"
+                                class="px-3 py-1 border rounded text-sm ${i === this.currentPage ? 'bg-blue-600 text-white border-blue-600' : 'border-gray-300 hover:bg-gray-200'}">
+                            ${i}
+                        </button>
+                    `;
+                }
+
+                if (endPage < this.totalPages) {
+                    if (endPage < this.totalPages - 1) {
+                        paginationHtml += '<span class="px-2 py-1 text-gray-500">...</span>';
+                    }
+                    paginationHtml += `<button onclick="articleSearch.goToPage(${this.totalPages})" class="px-3 py-1 border border-gray-300 rounded text-sm hover:bg-gray-200">${this.totalPages}</button>`;
+                }
+
+                paginationHtml += '</div>';
+
+                // Next button
+                paginationHtml += `
+                    <button ${this.currentPage >= this.totalPages ? 'disabled class="opacity-50 cursor-not-allowed"' : 'class="hover:bg-gray-200"'}
+                            onclick="articleSearch.goToPage(${this.currentPage + 1})"
+                            class="px-3 py-1 border border-gray-300 rounded text-sm">
+                        Next
+                        <i class="fas fa-chevron-right ml-1"></i>
+                    </button>
+                `;
+
+                paginationHtml += '</div>';
+                paginationDiv.innerHTML = paginationHtml;
+            }
+
+            highlightText(text, query) {
+                if (!query || !text) return text;
+
+                // Simple highlighting - escape HTML and highlight matches
+                const escapedText = text.replace(/[&<>"']/g, (char) => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[char]));
+
+                const terms = query.toLowerCase().split(/\s+/).filter(term => term.length > 0);
+                let highlightedText = escapedText;
+
+                terms.forEach(term => {
+                    const regex = new RegExp(`(${this.escapeRegex(term)})`, 'gi');
+                    highlightedText = highlightedText.replace(regex, '<span class="highlight">$1</span>');
+                });
+
+                return highlightedText;
+            }
+
+            escapeRegex(string) {
+                return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            }
+
+            goToPage(page) {
+                if (page >= 1 && page <= this.totalPages) {
+                    this.performSearch(page);
+                }
+            }
+
+            updateUrl() {
+                const url = new URL(window.location);
+                url.searchParams.set('q', this.searchQuery);
+                if (this.currentPage > 1) {
+                    url.searchParams.set('page', this.currentPage);
+                } else {
+                    url.searchParams.delete('page');
+                }
+                window.history.replaceState({}, '', url);
+            }
+
+            showLoading() {
+                document.getElementById('loadingState').classList.remove('hidden');
+            }
+
+            hideLoading() {
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+
+            showError(message) {
+                document.getElementById('errorMessage').textContent = message;
+                document.getElementById('errorState').classList.remove('hidden');
+            }
+
+            hideError() {
+                document.getElementById('errorState').classList.add('hidden');
+            }
+
+            showResults() {
+                document.getElementById('resultsContainer').classList.remove('hidden');
+            }
+
+            hideResults() {
+                document.getElementById('resultsContainer').classList.add('hidden');
+            }
+
+            showEmptyState() {
+                document.getElementById('emptyState').classList.remove('hidden');
+            }
+
+            hideEmptyState() {
+                document.getElementById('emptyState').classList.add('hidden');
+            }
+        }
+
+        // Initialize the application
+        let articleSearch;
+        document.addEventListener('DOMContentLoaded', () => {
+            articleSearch = new ArticleSearch();
+        });
+
+        // Listen for similar search events from other pages
+        document.addEventListener('similarSearch', (event) => {
+            const { url } = event.detail;
+            // This could navigate to article-viewer with the URL pre-filled
+            window.open(`/article-viewer#url=${encodeURIComponent(url)}`, '_blank');
+        });
+    </script>
+</body>
+</html>

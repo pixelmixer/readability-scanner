@@ -38,6 +38,9 @@ class DatabaseManager:
             self.database = self.client[settings.database_name]
             self._connected = True
 
+            # Create text index for article search if it doesn't exist
+            await self._ensure_text_index()
+
             logger.info(f"Successfully connected to database: {settings.database_name}")
 
         except ConnectionFailure as e:
@@ -80,6 +83,35 @@ class DatabaseManager:
         """Get a specific collection."""
         database = self.get_database()
         return database[collection_name]
+
+    async def _ensure_text_index(self) -> None:
+        """Ensure text index exists for article search."""
+        try:
+            collection = self.database["documents"]
+
+            # Check if text index already exists
+            existing_indexes = await collection.list_indexes().to_list(length=None)
+            has_text_index = any(
+                index.get("name", "").startswith("title_text_content_text") or
+                any(key.startswith("$**") for key in index.get("key", {}))
+                for index in existing_indexes
+            )
+
+            if not has_text_index:
+                logger.info("Creating text index for article search...")
+                # Create compound text index on title and content fields
+                await collection.create_index([
+                    ("title", "text"),
+                    ("Cleaned Data", "text"),
+                    ("content", "text")
+                ])
+                logger.info("Text index created successfully")
+            else:
+                logger.info("Text index already exists")
+
+        except Exception as e:
+            logger.warning(f"Failed to create text index: {e}")
+            # Don't fail the connection if index creation fails
 
 
 # Global database manager instance
