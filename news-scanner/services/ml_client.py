@@ -296,6 +296,74 @@ class MLServiceClient:
             logger.error(f"Error grouping articles by topics: {e}")
             return {"success": False, "error": str(e)}
 
+    async def get_similar_articles_for_display(
+        self,
+        article_url: str,
+        limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Get similar articles formatted for frontend display.
+
+        Args:
+            article_url: URL of the article to find similar articles for
+            limit: Maximum number of similar articles to return
+
+        Returns:
+            List of similar articles with metadata for display
+        """
+        try:
+            session = await self._get_session()
+            payload = {
+                "article_url": article_url,
+                "limit": limit
+            }
+
+            async with session.post(
+                f"{self.ml_service_url}/topics/similar-for-display",
+                json=payload
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get("similar_articles", [])
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Failed to get similar articles for display: {error_text}")
+                    return []
+
+        except Exception as e:
+            logger.error(f"Error getting similar articles for display: {e}")
+            return []
+
+    async def get_article_topics(self, article_url: str) -> List[Dict[str, Any]]:
+        """
+        Get topic groups that contain the specified article.
+
+        Args:
+            article_url: URL of the article
+
+        Returns:
+            List of topic groups containing the article
+        """
+        try:
+            session = await self._get_session()
+            payload = {"article_url": article_url}
+
+            async with session.post(
+                f"{self.ml_service_url}/topics/article-topics",
+                json=payload
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get("topic_groups", [])
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Failed to get article topics: {error_text}")
+                    return []
+
+        except Exception as e:
+            logger.error(f"Error getting article topics: {e}")
+            return []
+
 
 # Global ML service client instance
 ml_client = MLServiceClient()

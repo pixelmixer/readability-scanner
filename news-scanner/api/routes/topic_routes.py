@@ -16,6 +16,29 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/topics", tags=["topics"])
 
 
+def _generate_preview(article: Dict[str, Any], max_length: int = 150) -> str:
+    """
+    Generate a preview text for an article.
+
+    Args:
+        article: Article document
+        max_length: Maximum length of preview
+
+    Returns:
+        Preview text
+    """
+    content = article.get('Cleaned Data', '') or article.get('content', '')
+    if not content:
+        return "No preview available"
+
+    # Clean and truncate content
+    preview = content.strip()
+    if len(preview) > max_length:
+        preview = preview[:max_length].rsplit(' ', 1)[0] + "..."
+
+    return preview
+
+
 class SimilarArticleResponse(BaseModel):
     """Response model for similar articles."""
     url: str
@@ -69,7 +92,7 @@ async def get_similar_articles(
             raise HTTPException(status_code=404, detail="Article not found")
 
         # Get similar articles
-        similar_articles = await topic_service.get_similar_articles_for_display(
+        similar_articles = await ml_client.get_similar_articles_for_display(
             article_url,
             limit=limit
         )
@@ -126,7 +149,7 @@ async def get_article_topics(
             raise HTTPException(status_code=404, detail="Article not found")
 
         # Get topic groups
-        topic_groups = await topic_service.get_article_topics(article_url)
+        topic_groups = await ml_client.get_article_topics(article_url)
 
         return [
             TopicGroupResponse(
@@ -213,7 +236,7 @@ async def get_topic_group_details(
                 "title": article.get("title", "Untitled"),
                 "host": article.get("Host", ""),
                 "publication_date": article.get("publication_date").isoformat() if article.get("publication_date") else None,
-                "preview": topic_service._generate_preview(article)
+                "preview": _generate_preview(article)
             })
 
         return {

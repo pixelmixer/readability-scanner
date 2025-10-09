@@ -258,6 +258,66 @@ async def group_articles_by_topics(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class SimilarArticlesDisplayRequest(BaseModel):
+    article_url: str
+    limit: int = 5
+
+
+class SimilarArticlesDisplayResponse(BaseModel):
+    similar_articles: List[Dict[str, Any]]
+    success: bool
+
+
+@app.post("/topics/similar-for-display", response_model=SimilarArticlesDisplayResponse)
+async def get_similar_articles_for_display(request: SimilarArticlesDisplayRequest):
+    """Get similar articles formatted for frontend display."""
+    try:
+        if not topic_service:
+            raise HTTPException(status_code=503, detail="Topic service not initialized")
+
+        similar_articles = await topic_service.get_similar_articles_for_display(
+            request.article_url,
+            limit=request.limit
+        )
+
+        return SimilarArticlesDisplayResponse(
+            similar_articles=similar_articles,
+            success=True
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting similar articles for display: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+class ArticleTopicsRequest(BaseModel):
+    article_url: str
+
+
+class ArticleTopicsResponse(BaseModel):
+    topic_groups: List[Dict[str, Any]]
+    success: bool
+
+
+@app.post("/topics/article-topics", response_model=ArticleTopicsResponse)
+async def get_article_topics(request: ArticleTopicsRequest):
+    """Get topic groups that contain the specified article."""
+    try:
+        if not topic_service:
+            raise HTTPException(status_code=503, detail="Topic service not initialized")
+
+        topic_groups = await topic_service.get_article_topics(request.article_url)
+
+        return ArticleTopicsResponse(
+            topic_groups=topic_groups,
+            success=True
+        )
+
+    except Exception as e:
+        logger.error(f"Error getting article topics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8081)
 
