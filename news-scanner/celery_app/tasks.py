@@ -49,9 +49,9 @@ from .jobs.topic_analysis_jobs_ml import (
 from celery_app.celery_worker import celery_app
 
 # Register topic analysis tasks as Celery tasks
-@celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.generate_article_embedding', priority=4)
+@celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.generate_article_embedding', priority=3)
 def generate_article_embedding(self, article_url: str):
-    """Celery task wrapper for generate_article_embedding. Priority 4 (higher than summary tasks)."""
+    """Celery task wrapper for generate_article_embedding. Priority 3 (lowest priority for embeddings)."""
     # Run the synchronous wrapper function
     return _generate_article_embedding(article_url)
 

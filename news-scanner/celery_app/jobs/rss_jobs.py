@@ -91,7 +91,7 @@ def manual_refresh_source_task(self, source_id: str, source_url: str) -> Dict[st
         }
 
 
-@celery_app.task(bind=True, base=CallbackTask, name='celery_app.tasks.scan_single_source_task')
+@celery_app.task(bind=True, base=CallbackTask, name='celery_app.tasks.scan_single_source_task', priority=5)
 def scan_single_source_task(self, source_url: str, priority: int = 5) -> Dict[str, Any]:
     """
     Normal priority task for scanning individual RSS sources.
@@ -263,30 +263,41 @@ def scheduled_scan_trigger_task(self) -> Dict[str, Any]:
 
 def _trigger_summary_jobs_for_new_articles(new_articles: list[Dict[str, Any]]) -> None:
     """
-    Trigger summary generation jobs for newly created articles.
+    Trigger summary generation and embedding jobs for newly created articles.
 
     Args:
         new_articles: List of article data for newly created articles
     """
     try:
-        # Import the summary task
+        # Import the required tasks
         from .summary_jobs import generate_article_summary_task
+        from ..tasks import generate_article_embedding
 
-        # Queue summary tasks for each new article
+        # Queue summary and embedding tasks for each new article
         for article in new_articles:
             article_url = article.get('url')
             if article_url:
                 try:
-                    task_result = generate_article_summary_task.apply_async(
+                    # Queue summary task (priority 4 - after scanning)
+                    summary_result = generate_article_summary_task.apply_async(
                         args=[article_url],
                         queue='normal',
-                        priority=5  # Higher priority for new articles
+                        priority=4  # Medium priority for summaries
                     )
-                    logger.info(f"📝 Queued summary job for new article: {article_url} (task: {task_result.id})")
+                    logger.info(f"📝 Queued summary job for new article: {article_url} (task: {summary_result.id})")
+
+                    # Queue embedding task (priority 3 - lowest priority)
+                    embedding_result = generate_article_embedding.apply_async(
+                        args=[article_url],
+                        queue='normal',
+                        priority=3  # Lower priority for embeddings
+                    )
+                    logger.info(f"🧠 Queued embedding job for new article: {article_url} (task: {embedding_result.id})")
+
                 except Exception as e:
-                    logger.error(f"❌ Failed to queue summary job for {article_url}: {e}")
+                    logger.error(f"❌ Failed to queue processing jobs for {article_url}: {e}")
 
     except ImportError as e:
-        logger.warning(f"Cannot trigger summary jobs - summary module not available: {e}")
+        logger.warning(f"Cannot trigger processing jobs - required modules not available: {e}")
     except Exception as e:
-        logger.error(f"❌ Error triggering summary jobs: {e}")
+        logger.error(f"❌ Error triggering processing jobs: {e}")

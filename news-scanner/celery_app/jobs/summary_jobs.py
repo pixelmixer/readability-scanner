@@ -17,7 +17,7 @@ from services.summary_service import summary_service
 logger = logging.getLogger(__name__)
 
 
-@celery_app.task(bind=True, base=CallbackTask, name='celery_app.tasks.generate_article_summary_task')
+@celery_app.task(bind=True, base=CallbackTask, name='celery_app.tasks.generate_article_summary_task', priority=4)
 def generate_article_summary_task(self, article_url: str) -> Dict[str, Any]:
     """
     Generate a summary for a single article.
