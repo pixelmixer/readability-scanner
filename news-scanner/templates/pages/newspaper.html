@@ -41,10 +41,10 @@
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card">
-                    <div class="card-header bg-dark text-white">
-                        <h3 class="mb-0">
-                            <i class="fas fa-fire"></i> Latest News
-                            <small class="text-light">Most recent articles first</small>
+                    <div class="card-header bg-light">
+                        <h3 class="mb-0 text-dark">
+                            <i class="fas fa-fire text-primary"></i> Latest News
+                            <small class="text-muted">Most recent articles first</small>
                         </h3>
                     </div>
                     <div class="card-body p-0">
@@ -89,6 +89,8 @@
     max-height: 200px;
     overflow: hidden;
     transition: max-height 0.3s ease;
+    padding: 0 !important;
+    margin: 0 !important;
 }
 
 .article-content.expanded {
@@ -99,6 +101,16 @@
 .article-content p {
     white-space: pre-wrap;
     word-wrap: break-word;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Override image height attributes to auto */
+.article-content img,
+.card img {
+    height: auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
 }
 
 /* Remove left and right borders from article cards */
@@ -117,7 +129,10 @@ $(document).ready(function() {
     loadTodaysNews();
 
     // Set up event listeners
-    $('#refresh-news-btn').click(loadTodaysNews);
+    $('#refresh-news-btn').click(function() {
+        console.log('Refresh button clicked');
+        loadTodaysNews();
+    });
 
     // Auto-refresh every 5 minutes
     setInterval(loadTodaysNews, 300000);
@@ -135,27 +150,43 @@ function loadTodaysNews() {
     contentDiv.hide();
     noArticlesDiv.hide();
 
+    // Add timeout to prevent infinite loading
+    const apiTimeout = setTimeout(function() {
+        console.error('API request timed out');
+        loadingDiv.hide();
+        showError('Request timed out. Please try again.');
+    }, 10000); // 10 second timeout
+
     $.get('/api/summaries/articles/today?limit=100')
         .done(function(data) {
+            clearTimeout(apiTimeout); // Clear timeout on success
+            console.log('API Response:', data); // Debug log
             if (data.success) {
                 // Update date
                 $('#current-date').text(`Published on ${data.date}`);
 
-                if (data.articles.length === 0) {
+                if (data.articles && data.articles.length === 0) {
                     noArticlesDiv.show();
-                } else {
+                } else if (data.articles && data.articles.length > 0) {
+                    console.log(`Rendering ${data.articles.length} articles`);
                     renderNewspaperLayout(data.articles);
                     contentDiv.show();
+                } else {
+                    console.error('No articles array in response');
+                    showError('Invalid response format');
                 }
             } else {
+                console.error('API returned success=false:', data);
                 showError('Failed to load news articles');
             }
         })
         .fail(function(xhr) {
+            clearTimeout(apiTimeout); // Clear timeout on error
             console.error('Error loading today\'s news:', xhr);
             showError('Error loading news articles. Please try again.');
         })
         .always(function() {
+            console.log('API call completed, hiding loading');
             loadingDiv.hide();
         });
 }
@@ -166,25 +197,17 @@ function showError(message) {
 }
 
     function renderNewspaperLayout(articles) {
-        // Clear existing content
-        $('#main-headlines').empty();
-        $('#articles-grid').empty();
+        try {
+            console.log('Starting renderNewspaperLayout with', articles.length, 'articles');
 
-        // Check if we have any breaking news (within 30 minutes)
-        const hasBreakingNews = articles.some(article => isBreakingNews(article.publication_date));
+            // Clear existing content
+            $('#main-headlines').empty();
+            $('#articles-grid').empty();
 
-        // Update header based on breaking news availability
-        const headerTitle = hasBreakingNews ?
-            '<i class="fas fa-bolt"></i> BREAKING NEWS' :
-            '<i class="fas fa-fire"></i> Latest News';
-        const headerSubtitle = hasBreakingNews ?
-            'Breaking stories from the last 30 minutes' :
-            'Most recent articles first';
+            // Header is now static - no dynamic updates needed
 
-        $('.card-header h3').html(headerTitle + ' <small class="text-light">' + headerSubtitle + '</small>');
-
-        // Articles are pre-sorted by MongoDB query (newest first)
-        console.log(`📰 Displaying ${articles.length} articles (pre-sorted by MongoDB)`);
+            // Articles are pre-sorted by MongoDB query (newest first)
+            console.log(`📰 Displaying ${articles.length} articles (pre-sorted by MongoDB)`);
 
     // Helper function to get display content (summary or fallback to content)
     function getDisplayContent(article) {
@@ -196,6 +219,17 @@ function showError(message) {
             return article.content;
         } else {
             return 'No content available';
+        }
+    }
+
+    // Helper function to get full content for expansion
+    function getFullContent(article) {
+        if (article.content) {
+            return article.content;
+        } else if (article.cleaned_data) {
+            return article.cleaned_data;
+        } else {
+            return null;
         }
     }
 
@@ -307,6 +341,7 @@ function showError(message) {
         const colClass = isMain ? 'col-md-8' : 'col-md-4';
         const cardClass = isMain ? 'border-primary' : '';
         const displayContent = getDisplayContent(article);
+        const fullContent = getFullContent(article);
         const articleId = 'article-' + article.url.replace(/[^a-zA-Z0-9]/g, '-');
 
         const headlineHtml = `
@@ -314,7 +349,7 @@ function showError(message) {
                 <div class="card h-100 ${cardClass}">
                     <div class="card-body">
                         <h4 class="card-title ${isMain ? 'text-primary' : ''}">
-                            ${isBreakingNews(article.publication_date) ? '<span class="badge badge-danger mr-2">BREAKING</span>' : (isMain ? '<span class="badge badge-warning mr-2">LATEST</span>' : '')}${article.title || 'No Title'}
+                            ${isBreakingNews(article.publication_date) ? '<span class="badge bg-danger me-2">BREAKING</span>' : (isMain ? '<span class="badge bg-warning me-2">LATEST</span>' : '')}${article.title || 'No Title'}
                         </h4>
                         <div class="mb-2">
                             <small class="text-muted">
@@ -325,14 +360,22 @@ function showError(message) {
                             </small>
                         </div>
                         <div class="mb-2">
-                            ${isBreakingNews(article.publication_date) ? '<span class="badge badge-danger mr-1">BREAKING</span>' : (isNewArticle(article.publication_date) ? '<span class="badge badge-warning mr-1">NEW</span>' : '')}
-                            ${article.summary ? '<span class="badge badge-success">Summary</span>' : '<span class="badge badge-info">Full Content</span>'}
+                            ${isBreakingNews(article.publication_date) ? '<span class="badge bg-danger me-1">BREAKING</span>' : (isNewArticle(article.publication_date) ? '<span class="badge bg-warning me-1">NEW</span>' : '')}
+                            ${article.summary ? '<span class="badge bg-success">Summary</span>' : '<span class="badge bg-info">Full Content</span>'}
                         </div>
-                        <div class="article-content" id="${articleId}">
+                        <div class="article-content ${article.summary ? 'summary-content' : ''}" id="${articleId}">
                             <p class="card-text">${displayContent}</p>
                         </div>
+
+                        ${fullContent && fullContent !== displayContent ? `
+                            <div class="full-content" style="display: none;">
+                                <hr>
+                                <div class="card-text">${fullContent}</div>
+                            </div>
+                        ` : ''}
+
                         <div class="mt-2">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleArticleContent('${articleId}')">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleArticleContent('${articleId}')" ${!fullContent || fullContent === displayContent ? 'style="display: none;"' : ''}>
                                 <i class="fas fa-chevron-down" id="${articleId}-icon"></i>
                                 <span id="${articleId}-text">Show Full Article</span>
                             </button>
@@ -348,6 +391,7 @@ function showError(message) {
     const remainingArticles = articles.slice(3);
     remainingArticles.forEach(function(article) {
         const displayContent = getDisplayContent(article);
+        const fullContent = getFullContent(article);
         const articleId = 'article-' + article.url.replace(/[^a-zA-Z0-9]/g, '-');
         const articleHtml = `
             <div class="col-md-6 col-lg-4 mb-3">
@@ -363,14 +407,22 @@ function showError(message) {
                             </small>
                         </div>
                         <div class="mb-2">
-                            ${isBreakingNews(article.publication_date) ? '<span class="badge badge-danger mr-1">BREAKING</span>' : (isNewArticle(article.publication_date) ? '<span class="badge badge-warning mr-1">NEW</span>' : '')}
-                            ${article.summary ? '<span class="badge badge-success">Summary</span>' : '<span class="badge badge-info">Full Content</span>'}
+                            ${isBreakingNews(article.publication_date) ? '<span class="badge bg-danger me-1">BREAKING</span>' : (isNewArticle(article.publication_date) ? '<span class="badge bg-warning me-1">NEW</span>' : '')}
+                            ${article.summary ? '<span class="badge bg-success">Summary</span>' : '<span class="badge bg-info">Full Content</span>'}
                         </div>
-                        <div class="article-content" id="${articleId}">
+                        <div class="article-content ${article.summary ? 'summary-content' : ''}" id="${articleId}">
                             <p class="card-text">${displayContent}</p>
                         </div>
+
+                        ${fullContent && fullContent !== displayContent ? `
+                            <div class="full-content" style="display: none;">
+                                <hr>
+                                <div class="card-text">${fullContent}</div>
+                            </div>
+                        ` : ''}
+
                         <div class="mt-2">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleArticleContent('${articleId}')">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="toggleArticleContent('${articleId}')" ${!fullContent || fullContent === displayContent ? 'style="display: none;"' : ''}>
                                 <i class="fas fa-chevron-down" id="${articleId}-icon"></i>
                                 <span id="${articleId}-text">Show Full Article</span>
                             </button>
@@ -381,21 +433,35 @@ function showError(message) {
         `;
         $('#articles-grid').append(articleHtml);
     });
+
+            console.log('Finished rendering articles');
+        } catch (error) {
+            console.error('Error in renderNewspaperLayout:', error);
+            showError('Error rendering articles: ' + error.message);
+        }
 }
 
 function toggleArticleContent(articleId) {
     const contentDiv = $('#' + articleId);
     const icon = $('#' + articleId + '-icon');
     const text = $('#' + articleId + '-text');
+    const cardBody = contentDiv.closest('.card-body');
+    const fullContentDiv = cardBody.find('.full-content');
 
     if (contentDiv.hasClass('expanded')) {
-        // Collapse
+        // Collapse - hide full content and show truncated content
+        if (fullContentDiv.length > 0) {
+            fullContentDiv.hide();
+        }
         contentDiv.removeClass('expanded');
         contentDiv.css('max-height', '200px').css('overflow', 'hidden');
         icon.removeClass('fa-chevron-up').addClass('fa-chevron-down');
         text.text('Show Full Article');
     } else {
-        // Expand
+        // Expand - show full content if available
+        if (fullContentDiv.length > 0) {
+            fullContentDiv.show();
+        }
         contentDiv.addClass('expanded');
         contentDiv.css('max-height', 'none').css('overflow', 'visible');
         icon.removeClass('fa-chevron-down').addClass('fa-chevron-up');
