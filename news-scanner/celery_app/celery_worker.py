@@ -108,12 +108,18 @@ celery_app.conf.update(
             'options': {'queue': 'low', 'priority': 3}
         },
 
-
         # Process summary backlog every 30 minutes
         'process-summary-backlog': {
             'task': 'celery_app.tasks.process_summary_backlog_task',
             'schedule': crontab(minute='*/30'),  # Every 30 minutes
             'options': {'queue': 'low', 'priority': 2}
+        },
+
+        # Full topic analysis pipeline - weekly on Sundays at 2 AM
+        'weekly-topic-analysis': {
+            'task': 'celery_app.tasks.full_topic_analysis_pipeline',
+            'schedule': crontab(minute=0, hour=2, day_of_week=0),  # Sunday 2 AM
+            'options': {'queue': 'low', 'priority': 1}
         },
     },
 
