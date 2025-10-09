@@ -37,12 +37,12 @@ from .jobs.reddit_jobs import (
 )
 # Import topic analysis functions from ML service jobs
 from .jobs.topic_analysis_jobs_ml import (
-    generate_article_embedding as _generate_article_embedding,
-    batch_generate_embeddings as _batch_generate_embeddings,
-    group_articles_by_topics as _group_articles_by_topics,
-    generate_shared_summaries as _generate_shared_summaries,
-    process_new_article as _process_new_article,
-    full_topic_analysis_pipeline as _full_topic_analysis_pipeline
+    generate_article_embedding_sync as _generate_article_embedding,
+    batch_generate_embeddings_sync as _batch_generate_embeddings,
+    group_articles_by_topics_sync as _group_articles_by_topics,
+    generate_shared_summaries_sync as _generate_shared_summaries,
+    process_new_article_sync as _process_new_article,
+    full_topic_analysis_pipeline_sync as _full_topic_analysis_pipeline
 )
 
 # Import the Celery app for any additional configuration
@@ -52,92 +52,38 @@ from celery_app.celery_worker import celery_app
 @celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.generate_article_embedding', priority=4)
 def generate_article_embedding(self, article_url: str):
     """Celery task wrapper for generate_article_embedding. Priority 4 (higher than summary tasks)."""
-    import asyncio
-
-    # Create a new event loop for this task to avoid conflicts
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        result = loop.run_until_complete(_generate_article_embedding(article_url))
-        return result
-    finally:
-        loop.close()
+    # Run the synchronous wrapper function
+    return _generate_article_embedding(article_url)
 
 @celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.batch_generate_embeddings', priority=3)
 def batch_generate_embeddings(self, batch_size: int = 100):
     """Celery task wrapper for batch_generate_embeddings. Priority 3 (same as scheduled summary tasks)."""
-    import asyncio
-
-    # Create a new event loop for this task to avoid conflicts
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        result = loop.run_until_complete(_batch_generate_embeddings(batch_size))
-        return result
-    finally:
-        loop.close()
+    # Run the synchronous wrapper function
+    return _batch_generate_embeddings(batch_size)
 
 @celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.group_articles_by_topics', priority=2)
 def group_articles_by_topics(self, similarity_threshold: float = 0.75, min_group_size: int = 2):
     """Celery task wrapper for group_articles_by_topics. Priority 2 (lower than embeddings)."""
-    import asyncio
-
-    # Create a new event loop for this task to avoid conflicts
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        result = loop.run_until_complete(_group_articles_by_topics(similarity_threshold, min_group_size))
-        return result
-    finally:
-        loop.close()
+    # Run the synchronous wrapper function
+    return _group_articles_by_topics(similarity_threshold, min_group_size)
 
 @celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.generate_shared_summaries', priority=2)
 def generate_shared_summaries(self):
     """Celery task wrapper for generate_shared_summaries. Priority 2 (lower than embeddings)."""
-    import asyncio
-
-    # Create a new event loop for this task to avoid conflicts
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        result = loop.run_until_complete(_generate_shared_summaries())
-        return result
-    finally:
-        loop.close()
+    # Run the synchronous wrapper function
+    return _generate_shared_summaries()
 
 @celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.process_new_article', priority=4)
 def process_new_article(self, article_url: str):
     """Celery task wrapper for process_new_article. Priority 4 (higher than summary tasks)."""
-    import asyncio
-
-    # Create a new event loop for this task to avoid conflicts
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        result = loop.run_until_complete(_process_new_article(article_url))
-        return result
-    finally:
-        loop.close()
+    # Run the synchronous wrapper function
+    return _process_new_article(article_url)
 
 @celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.full_topic_analysis_pipeline', priority=1)
 def full_topic_analysis_pipeline(self):
     """Celery task wrapper for full_topic_analysis_pipeline. Priority 1 (lowest, for maintenance)."""
-    import asyncio
-
-    # Create a new event loop for this task to avoid conflicts
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-
-    try:
-        result = loop.run_until_complete(_full_topic_analysis_pipeline())
-        return result
-    finally:
-        loop.close()
+    # Run the synchronous wrapper function
+    return _full_topic_analysis_pipeline()
 
 # All tasks are now automatically registered through the imports above
 # Task names remain the same for backward compatibility:

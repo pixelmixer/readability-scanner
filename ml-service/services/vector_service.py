@@ -4,6 +4,7 @@ Vector similarity service for article topic analysis.
 
 import logging
 import numpy as np
+import torch
 from typing import List, Dict, Any, Optional, Tuple
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
@@ -31,13 +32,16 @@ class VectorSimilarityService:
         self.model = None
         self.embedding_dimension = 384  # Dimension for all-MiniLM-L6-v2
         self.collection_name = "documents"
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
 
     async def initialize(self):
         """Initialize the embedding model."""
         try:
             logger.info(f"Loading embedding model: {self.model_name}")
+            logger.info(f"Using device: {self.device}")
             self.model = SentenceTransformer(self.model_name)
-            logger.info("Embedding model loaded successfully")
+            self.model = self.model.to(self.device)
+            logger.info(f"Embedding model loaded successfully on {self.device}")
         except Exception as e:
             logger.error(f"Failed to load embedding model: {e}")
             raise

@@ -24,6 +24,11 @@ class TopicAnalysisTask(BaseTask):
         super().on_failure(exc, task_id, args, kwargs, einfo)
 
 
+def generate_article_embedding_sync(article_url: str) -> Dict[str, Any]:
+    """Synchronous wrapper for generate_article_embedding."""
+    import asyncio
+    return asyncio.run(generate_article_embedding(article_url))
+
 async def generate_article_embedding(article_url: str) -> Dict[str, Any]:
     """
     Generate embedding for a single article using ML service.
@@ -39,6 +44,10 @@ async def generate_article_embedding(article_url: str) -> Dict[str, Any]:
 
         # Import ML client
         from services.ml_client import ml_client
+
+        # Ensure database connection is established
+        from .base_task import ensure_database_connection
+        await ensure_database_connection()
 
         # Get article from database
         from database.connection import db_manager
@@ -118,6 +127,11 @@ async def generate_article_embedding(article_url: str) -> Dict[str, Any]:
         }
 
 
+def batch_generate_embeddings_sync(batch_size: int = 100) -> Dict[str, Any]:
+    """Synchronous wrapper for batch_generate_embeddings."""
+    import asyncio
+    return asyncio.run(batch_generate_embeddings(batch_size))
+
 async def batch_generate_embeddings(batch_size: int = 100) -> Dict[str, Any]:
     """
     Generate embeddings for all articles that don't have them using ML service.
@@ -154,6 +168,14 @@ async def batch_generate_embeddings(batch_size: int = 100) -> Dict[str, Any]:
             "failed": 0
         }
 
+
+def group_articles_by_topics_sync(
+    similarity_threshold: float = 0.75,
+    min_group_size: int = 2
+) -> Dict[str, Any]:
+    """Synchronous wrapper for group_articles_by_topics."""
+    import asyncio
+    return asyncio.run(group_articles_by_topics(similarity_threshold, min_group_size))
 
 async def group_articles_by_topics(
     similarity_threshold: float = 0.75,
@@ -193,6 +215,11 @@ async def group_articles_by_topics(
             "topic_groups": []
         }
 
+
+def generate_shared_summaries_sync() -> Dict[str, Any]:
+    """Synchronous wrapper for generate_shared_summaries."""
+    import asyncio
+    return asyncio.run(generate_shared_summaries())
 
 async def generate_shared_summaries() -> Dict[str, Any]:
     """
@@ -256,6 +283,11 @@ async def generate_shared_summaries() -> Dict[str, Any]:
         }
 
 
+def process_new_article_sync(article_url: str) -> Dict[str, Any]:
+    """Synchronous wrapper for process_new_article."""
+    import asyncio
+    return asyncio.run(process_new_article(article_url))
+
 async def process_new_article(article_url: str) -> Dict[str, Any]:
     """
     Process a new article for topic analysis using ML service.
@@ -295,6 +327,11 @@ async def process_new_article(article_url: str) -> Dict[str, Any]:
             "article_url": article_url
         }
 
+
+def full_topic_analysis_pipeline_sync() -> Dict[str, Any]:
+    """Synchronous wrapper for full_topic_analysis_pipeline."""
+    import asyncio
+    return asyncio.run(full_topic_analysis_pipeline())
 
 async def full_topic_analysis_pipeline() -> Dict[str, Any]:
     """

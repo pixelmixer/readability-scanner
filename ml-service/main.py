@@ -122,6 +122,29 @@ async def health_check():
     }
 
 
+@app.get("/gpu-info")
+async def gpu_info():
+    """Get GPU information and status."""
+    import torch
+
+    gpu_info = {
+        "cuda_available": torch.cuda.is_available(),
+        "cuda_device_count": torch.cuda.device_count() if torch.cuda.is_available() else 0,
+        "current_device": torch.cuda.current_device() if torch.cuda.is_available() else None,
+        "device_name": torch.cuda.get_device_name(0) if torch.cuda.is_available() else None,
+        "vector_service_device": vector_service.device if vector_service else None
+    }
+
+    if torch.cuda.is_available():
+        gpu_info.update({
+            "gpu_memory_allocated": torch.cuda.memory_allocated(0),
+            "gpu_memory_reserved": torch.cuda.memory_reserved(0),
+            "gpu_memory_total": torch.cuda.get_device_properties(0).total_memory
+        })
+
+    return gpu_info
+
+
 # Vector operations endpoints
 @app.post("/embeddings/generate", response_model=EmbeddingResponse)
 async def generate_embedding(request: EmbeddingRequest):

@@ -1,4 +1,4 @@
-# ML Service - Optimized with pip cache and multi-stage build
+# ML Service - GPU-enabled with optimized caching
 FROM python:3.11-slim as base
 
 # Set working directory

@@ -73,7 +73,7 @@ services:
         max-file: "3"
         labels: "service=hug-api"
 
-  # ML Service - Dedicated microservice for ML operations
+  # ML Service - Dedicated microservice for ML operations (GPU-enabled)
   ml-service:
     build:
       context: ./ml-service/
@@ -89,12 +89,22 @@ services:
     volumes:
       - ./ml-service/.pip-cache:/root/.cache/pip
     restart: unless-stopped
+    # GPU support
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     environment:
       - OTEL_RESOURCE_ATTRIBUTES=service.name=ml-service
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://host.docker.internal:30007
       - OTEL_EXPORTER_OTLP_PROTOCOL=grpc
       - OTEL_EXPORTER_OTLP_LOGS_ENDPOINT=http://host.docker.internal:30008/v1/logs
       - OTEL_EXPORTER_OTLP_METRICS_ENDPOINT=http://host.docker.internal:30008/v1/metrics
+      - NVIDIA_VISIBLE_DEVICES=all
+      - CUDA_VISIBLE_DEVICES=0
     logging:
       driver: "json-file"
       options:
