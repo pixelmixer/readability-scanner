@@ -282,8 +282,7 @@
                                     <i class="fas fa-external-link-alt mr-1"></i>
                                     View Article
                                 </a>
-                                <a href="/article-viewer" class="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full hover:bg-green-200"
-                                   onclick="event.preventDefault(); window.open('/article-viewer', '_blank'); document.dispatchEvent(new CustomEvent('similarSearch', {detail: {url: '${article.url}'}}));">
+                                <a href="/article-viewer?url=${encodeURIComponent(article.url)}" target="_blank" class="inline-flex items-center px-3 py-1 bg-green-100 text-green-800 text-sm rounded-full hover:bg-green-200">
                                     <i class="fas fa-search-plus mr-1"></i>
                                     Find Similar
                                 </a>
@@ -443,12 +442,6 @@
             articleSearch = new ArticleSearch();
         });
 
-        // Listen for similar search events from other pages
-        document.addEventListener('similarSearch', (event) => {
-            const { url } = event.detail;
-            // This could navigate to article-viewer with the URL pre-filled
-            window.open(`/article-viewer#url=${encodeURIComponent(url)}`, '_blank');
-        });
     </script>
 </body>
 </html>

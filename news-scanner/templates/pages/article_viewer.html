@@ -149,6 +149,7 @@
             constructor() {
                 this.articleUrl = '';
                 this.initializeEventListeners();
+                this.checkUrlParameters();
             }
 
             initializeEventListeners() {
@@ -162,6 +163,20 @@
                     }
                 });
             }
+
+            checkUrlParameters() {
+                // Check for URL parameter (e.g., ?url=...)
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlParam = urlParams.get('url');
+                if (urlParam) {
+                    document.getElementById('articleUrl').value = urlParam;
+                    // Auto-search when URL parameter is present
+                    setTimeout(() => {
+                        this.searchSimilarArticles();
+                    }, 100); // Small delay to ensure DOM is ready
+                }
+            }
+
 
             async searchSimilarArticles() {
                 const articleUrl = document.getElementById('articleUrl').value.trim();
