@@ -130,6 +130,63 @@ async def get_similar_articles(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.get("/article/{article_url:path}/similar", response_model=List[SimilarArticleResponse])
+async def get_similar_articles_by_url(
+    article_url: str,
+    limit: int = Query(5, ge=1, le=20, description="Maximum number of similar articles to return"),
+    similarity_threshold: float = Query(0.6, ge=0.0, le=1.0, description="Minimum similarity score"),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Get articles similar to the specified article by URL.
+
+    Args:
+        article_url: URL of the article to find similar articles for
+        limit: Maximum number of similar articles to return
+        similarity_threshold: Minimum similarity score (0-1)
+        db: Database connection
+
+    Returns:
+        List of similar articles with metadata
+    """
+    try:
+        # Verify article exists
+        collection = db["documents"]
+        article = await collection.find_one({"url": article_url})
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+
+        # Get similar articles
+        similar_articles = await ml_client.get_similar_articles_for_display(
+            article_url,
+            limit=limit
+        )
+
+        # Filter by similarity threshold
+        filtered_articles = [
+            article for article in similar_articles
+            if article["similarity_score"] >= similarity_threshold
+        ]
+
+        return [
+            SimilarArticleResponse(
+                url=article["url"],
+                title=article["title"],
+                host=article["host"],
+                publication_date=article["publication_date"] if isinstance(article["publication_date"], str) else (article["publication_date"].isoformat() if article["publication_date"] else None),
+                similarity_score=article["similarity_score"],
+                preview=article["preview"]
+            )
+            for article in filtered_articles
+        ]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting similar articles for URL '{article_url}': {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.get("/article/{article_url:path}/topics", response_model=List[TopicGroupResponse])
 async def get_article_topics(
     article_url: str,

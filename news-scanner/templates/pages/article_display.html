@@ -35,6 +35,16 @@
         .metric-card.tertiary {
             background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         }
+        .similarity-bar {
+            background: linear-gradient(90deg, #3b82f6 0%, #10b981 100%);
+        }
+        .similar-article-card {
+            transition: all 0.3s ease;
+        }
+        .similar-article-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -144,6 +154,18 @@
                 <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
                     <div id="articleBody" class="article-content text-gray-800 prose prose-lg max-w-none">
                         <!-- Article content will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Similar Articles -->
+                <div id="similarArticlesSection" class="bg-white rounded-lg shadow-sm p-6 mb-8 hidden">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-6">
+                        <i class="fas fa-layer-group mr-2"></i>
+                        Similar Articles
+                        <span id="similarArticlesCount" class="text-sm font-normal text-gray-500"></span>
+                    </h2>
+                    <div id="similarArticles" class="space-y-4">
+                        <!-- Similar articles will be populated here -->
                     </div>
                 </div>
 
@@ -257,6 +279,7 @@
         class ArticleDisplay {
             constructor() {
                 this.articleId = this.getArticleIdFromUrl();
+                this.articleUrl = null;
                 this.initializePage();
             }
 
@@ -273,6 +296,10 @@
 
                 try {
                     await this.loadArticle();
+                    // Load similar articles after the main article is loaded
+                    if (this.articleUrl) {
+                        await this.loadSimilarArticles();
+                    }
                 } catch (error) {
                     console.error('Error initializing page:', error);
                     this.showError('Failed to load article');
@@ -302,6 +329,9 @@
             }
 
             displayArticle(article) {
+                // Store article URL for similar articles
+                this.articleUrl = article.url;
+
                 // Set page title
                 document.title = `${article.title || 'Article'} - News Analyzer`;
 
@@ -383,6 +413,69 @@
                 document.getElementById('daleChallDetail').textContent = article['Dale Chall'] ? article['Dale Chall'].toFixed(2) : '-';
                 document.getElementById('daleChallGradeDetail').textContent = article['Dale Chall: Grade'] || '-';
                 document.getElementById('spacheDetail').textContent = article.Spache ? article.Spache.toFixed(2) : '-';
+            }
+
+            async loadSimilarArticles() {
+                try {
+                    const response = await fetch(`/api/topics/article/${encodeURIComponent(this.articleUrl)}/similar?limit=5&similarity_threshold=0.6`);
+
+                    if (!response.ok) {
+                        console.warn('Failed to load similar articles:', response.status);
+                        return;
+                    }
+
+                    const similarArticles = await response.json();
+                    this.displaySimilarArticles(similarArticles);
+
+                } catch (error) {
+                    console.error('Error loading similar articles:', error);
+                    // Don't show error to user, just silently fail
+                }
+            }
+
+            displaySimilarArticles(articles) {
+                const similarArticlesSection = document.getElementById('similarArticlesSection');
+                const similarArticlesDiv = document.getElementById('similarArticles');
+                const similarArticlesCount = document.getElementById('similarArticlesCount');
+
+                if (!articles || articles.length === 0) {
+                    return; // Don't show section if no similar articles
+                }
+
+                similarArticlesCount.textContent = `(${articles.length} found)`;
+
+                similarArticlesDiv.innerHTML = articles.map(article => `
+                    <div class="similar-article-card bg-gray-50 rounded-lg p-4 border border-gray-200">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <h4 class="font-semibold text-gray-900 mb-2">
+                                    <a href="${article.url}" target="_blank" class="hover:text-blue-600">
+                                        ${article.title}
+                                    </a>
+                                </h4>
+                                <p class="text-gray-600 text-sm mb-2">${article.preview}</p>
+                                <div class="flex items-center text-xs text-gray-500 space-x-4">
+                                    <span><i class="fas fa-globe mr-1"></i>${article.host}</span>
+                                    ${article.publication_date ? `<span><i class="fas fa-calendar mr-1"></i>${new Date(article.publication_date).toLocaleDateString()}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="ml-4 flex flex-col items-end">
+                                <div class="mb-2">
+                                    <div class="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                                        <div class="similarity-bar h-full" style="width: ${(article.similarity_score * 100).toFixed(0)}%"></div>
+                                    </div>
+                                    <span class="text-xs text-gray-500 mt-1">${(article.similarity_score * 100).toFixed(1)}% similar</span>
+                                </div>
+                                <a href="${article.url}" target="_blank" class="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full hover:bg-blue-200">
+                                    <i class="fas fa-external-link-alt mr-1"></i>
+                                    View
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                similarArticlesSection.classList.remove('hidden');
             }
 
             showLoading() {
