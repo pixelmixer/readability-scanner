@@ -109,6 +109,12 @@ class ContentExtractor:
                     self.logger.warning(f"No content extracted from {article_url}")
                     raise ContentExtractionError("No content extracted", status_code=204)
 
+                # Extract primary image URL
+                image_url = self._extract_primary_image(content_data, article_url)
+                if image_url:
+                    content_data['image_url'] = image_url
+                    self.logger.debug(f"Extracted primary image: {image_url}")
+
                 # Add metadata
                 content_data['extraction_user_agent'] = user_agent_summary
                 content_data['extraction_timestamp'] = asyncio.get_event_loop().time()
@@ -126,6 +132,86 @@ class ContentExtractor:
         except Exception as e:
             self.logger.error(f"Unexpected error extracting content from {article_url}: {e}")
             raise ContentExtractionError(f"Unexpected error: {e}")
+
+    def _extract_primary_image(self, content_data: Dict[str, Any], article_url: str) -> Optional[str]:
+        """
+        Extract the primary image URL from readability response data.
+
+        Args:
+            content_data: Response data from readability service
+            article_url: Original article URL for relative URL resolution
+
+        Returns:
+            Primary image URL or None if no suitable image found
+        """
+        try:
+            # Check for lead_image_url (common in readability responses)
+            if content_data.get('lead_image_url'):
+                return content_data['lead_image_url']
+
+            # Check for image in meta data
+            if content_data.get('meta', {}).get('image'):
+                return content_data['meta']['image']
+
+            # Check for og:image in meta data
+            if content_data.get('meta', {}).get('og', {}).get('image'):
+                return content_data['meta']['og']['image']
+
+            # Look for images in the content HTML
+            content = content_data.get('content', '')
+            if content:
+                # Simple regex to find first img src
+                import re
+                img_match = re.search(r'<img[^>]+src=["\']([^"\']+)["\'][^>]*>', content, re.IGNORECASE)
+                if img_match:
+                    img_url = img_match.group(1)
+                    # Convert relative URLs to absolute
+                    if img_url.startswith('/'):
+                        from urllib.parse import urljoin
+                        img_url = urljoin(article_url, img_url)
+                    elif not img_url.startswith(('http://', 'https://')):
+                        img_url = urljoin(article_url, img_url)
+
+                    # Basic validation - ensure it's a reasonable image URL
+                    if self._is_valid_image_url(img_url):
+                        return img_url
+
+            return None
+
+        except Exception as e:
+            self.logger.warning(f"Error extracting primary image from {article_url}: {e}")
+            return None
+
+    def _is_valid_image_url(self, url: str) -> bool:
+        """
+        Basic validation for image URLs.
+
+        Args:
+            url: Image URL to validate
+
+        Returns:
+            True if URL appears to be a valid image URL
+        """
+        if not url or not isinstance(url, str):
+            return False
+
+        # Check for common image extensions
+        image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg']
+        url_lower = url.lower()
+
+        # Check file extension
+        if any(url_lower.endswith(ext) for ext in image_extensions):
+            return True
+
+        # Check for image hosting domains or paths
+        if any(domain in url_lower for domain in ['imgur.com', 'cloudinary.com', 'unsplash.com']):
+            return True
+
+        # Check for common image URL patterns
+        if '/image/' in url_lower or '/img/' in url_lower or '/photo/' in url_lower:
+            return True
+
+        return False
 
     def _analyze_error_response(self, status_code: int, response_text: str, url: str) -> None:
         """Analyze error responses to provide diagnostic information."""

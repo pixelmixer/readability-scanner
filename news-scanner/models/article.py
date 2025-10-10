@@ -18,6 +18,7 @@ class ArticleBase(BaseModel):
     host: Optional[str] = Field(None, alias="Host", description="Hostname of the article")
     origin: Optional[str] = Field(None, description="RSS feed origin URL")
     publication_date: Optional[datetime] = Field(None, alias="publication date", description="Article publication date")
+    image_url: Optional[HttpUrl] = Field(None, description="Primary article image URL")
 
 
 class ArticleCreate(ArticleBase):

@@ -294,6 +294,24 @@
 }
 
 
+/* Article image styling */
+.article-image {
+    position: relative;
+    overflow: hidden;
+    border-radius: 8px;
+}
+
+.article-image img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    transition: transform 0.3s ease;
+}
+
+.article-image:hover img {
+    transform: scale(1.02);
+}
+
 /* Remove left and right borders from article cards */
 .card {
     border-left: none !important;
@@ -555,6 +573,13 @@ function showError(message) {
                 <div class="card h-100">
                     <div class="card-body">
                         <h5 class="card-title">${article.title || 'No Title'}</h5>
+
+                        ${article.image_url ? `
+                            <div class="article-image mb-2">
+                                <img src="${article.image_url}" alt="${article.title || 'Article image'}" class="img-fluid rounded" loading="lazy" onerror="this.style.display='none'">
+                            </div>
+                        ` : ''}
+
                         <div class="mb-2">
                             <small class="text-muted">
                                 <i class="fas fa-calendar"></i> ${formatDate(article.publication_date)}
