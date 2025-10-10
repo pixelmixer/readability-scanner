@@ -331,6 +331,18 @@ def register_routes(app: FastAPI):
             "title": "Topic Analysis Management"
         })
 
+    # Article display page
+    @app.get("/article", include_in_schema=False)
+    async def article_display_page(request: Request):
+        """Serve the article display page for viewing individual articles."""
+        from fastapi.templating import Jinja2Templates
+
+        templates = Jinja2Templates(directory="templates")
+        return templates.TemplateResponse("pages/article_display.html", {
+            "request": request,
+            "title": "Article Display"
+        })
+
 
     # Health check endpoint
     @app.get("/health", tags=["health"])

@@ -422,8 +422,11 @@ class ArticleRepository:
             logger.error(f"Error counting articles without summaries: {e}")
             return 0
 
-    async def get_todays_articles(self, limit: int = 100) -> List[Article]:
-        """Get recent articles with valid publication_date, ordered by publication_date (newest first)."""
+    async def get_todays_articles(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get recent articles with valid publication_date, ordered by publication_date (newest first).
+
+        Returns a list of dictionaries containing both the Article object and the MongoDB _id.
+        """
         try:
             from datetime import datetime, timedelta
 
@@ -444,14 +447,18 @@ class ArticleRepository:
             cursor = self.collection.find(query).sort("publication_date", -1).limit(limit)
             docs = await cursor.to_list(length=limit)
 
-            # Convert to Article objects
+            # Convert to dictionaries with both Article object and _id
             articles = []
             for doc in docs:
                 try:
                     # Double-check that the publication_date is valid before including
                     if doc.get("publication_date") and isinstance(doc["publication_date"], datetime):
                         article = Article(**self._clean_article_data(doc))
-                        articles.append(article)
+                        doc_id = str(doc["_id"]) if "_id" in doc else None
+                        articles.append({
+                            "article": article,
+                            "_id": doc_id
+                        })
                     else:
                         logger.debug(f"Skipping article with invalid publication_date: {doc.get('url', 'unknown')}")
                         continue

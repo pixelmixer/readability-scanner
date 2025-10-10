@@ -5,8 +5,9 @@ Article search routes for free text search functionality.
 import logging
 import re
 from typing import List, Dict, Any, Optional
-from fastapi import APIRouter, Query, HTTPException, Depends
+from fastapi import APIRouter, Query, HTTPException, Depends, Path
 from motor.motor_asyncio import AsyncIOMotorDatabase
+from bson import ObjectId
 
 from database.connection import get_database
 
@@ -67,6 +68,7 @@ async def search_articles(
             cursor = collection.find(
                 search_query,
                 {
+                    "_id": 1,
                     "title": 1,
                     "url": 1,
                     "Host": 1,
@@ -87,6 +89,7 @@ async def search_articles(
                 preview = _generate_preview(content)
 
                 formatted_articles.append({
+                    "_id": str(article["_id"]),
                     "url": article["url"],
                     "title": article.get("title", "Untitled"),
                     "host": article.get("Host", ""),
@@ -119,6 +122,7 @@ async def search_articles(
             cursor = collection.find(
                 search_query,
                 {
+                    "_id": 1,
                     "title": 1,
                     "url": 1,
                     "Host": 1,
@@ -138,6 +142,7 @@ async def search_articles(
                 preview = _generate_preview(content)
 
                 formatted_articles.append({
+                    "_id": str(article["_id"]),
                     "url": article["url"],
                     "title": article.get("title", "Untitled"),
                     "host": article.get("Host", ""),
@@ -166,6 +171,77 @@ async def search_articles(
     except Exception as e:
         logger.error(f"Error searching articles: {e}")
         raise HTTPException(status_code=500, detail="Search failed")
+
+
+@router.get("/{article_id}")
+async def get_article(
+    article_id: str = Path(..., description="MongoDB ObjectId of the article"),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Get a single article by its MongoDB ObjectId.
+
+    Retrieves the full article data including content, metadata, and readability metrics.
+    Used by the internal article viewer to display articles from the database.
+
+    Args:
+        article_id: MongoDB ObjectId as a string
+        db: Database connection
+
+    Returns:
+        Dictionary containing the full article data
+
+    Raises:
+        HTTPException: If article not found or invalid ObjectId
+    """
+    try:
+        # Validate ObjectId format
+        try:
+            object_id = ObjectId(article_id)
+        except Exception:
+            raise HTTPException(status_code=400, detail="Invalid article ID format")
+
+        collection = db["documents"]
+
+        # Find the article by ObjectId
+        article_doc = await collection.find_one({"_id": object_id})
+
+        if not article_doc:
+            raise HTTPException(status_code=404, detail="Article not found")
+
+        # Convert ObjectId to string for JSON serialization
+        article_doc["_id"] = str(article_doc["_id"])
+
+        # Convert datetime objects to ISO format strings
+        if "publication_date" in article_doc and article_doc["publication_date"]:
+            if hasattr(article_doc["publication_date"], 'isoformat'):
+                article_doc["publication_date"] = article_doc["publication_date"].isoformat()
+            else:
+                article_doc["publication_date"] = str(article_doc["publication_date"])
+
+        if "date" in article_doc and article_doc["date"]:
+            if hasattr(article_doc["date"], 'isoformat'):
+                article_doc["date"] = article_doc["date"].isoformat()
+            else:
+                article_doc["date"] = str(article_doc["date"])
+
+        if "summary_generated_at" in article_doc and article_doc["summary_generated_at"]:
+            if hasattr(article_doc["summary_generated_at"], 'isoformat'):
+                article_doc["summary_generated_at"] = article_doc["summary_generated_at"].isoformat()
+            else:
+                article_doc["summary_generated_at"] = str(article_doc["summary_generated_at"])
+
+        # Handle Dale Chall Grade field that might be stored as list instead of string
+        if "Dale Chall: Grade" in article_doc and isinstance(article_doc["Dale Chall: Grade"], list):
+            article_doc["Dale Chall: Grade"] = str(article_doc["Dale Chall: Grade"]).replace("[", "").replace("]", "")
+
+        return article_doc
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error retrieving article {article_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve article")
 
 
 def _generate_preview(content: str, max_length: int = 200) -> str:

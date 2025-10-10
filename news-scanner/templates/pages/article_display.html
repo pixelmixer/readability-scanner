@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Article Display - {{ title }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .article-content {
+            line-height: 1.7;
+        }
+        .article-content p {
+            margin-bottom: 1rem;
+        }
+        .article-content h1, .article-content h2, .article-content h3,
+        .article-content h4, .article-content h5, .article-content h6 {
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            font-weight: 600;
+        }
+        .readability-score {
+            transition: all 0.3s ease;
+        }
+        .readability-score:hover {
+            transform: scale(1.05);
+        }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .metric-card.secondary {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+        .metric-card.tertiary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="min-h-screen">
+        <!-- Header -->
+        <header class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-4">
+                    <div class="flex items-center">
+                        <a href="/" class="text-xl font-bold text-gray-900">
+                            <i class="fas fa-newspaper mr-2"></i>
+                            News Analyzer
+                        </a>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <a href="/sources" class="text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-rss mr-1"></i>
+                            Sources
+                        </a>
+                        <a href="/article-search" class="text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-search mr-1"></i>
+                            Search Articles
+                        </a>
+                        <a href="/daily" class="text-gray-600 hover:text-gray-900">
+                            <i class="fas fa-chart-line mr-1"></i>
+                            Daily Report
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <main class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Loading State -->
+            <div id="loadingState" class="text-center py-12">
+                <div class="loading-spinner mx-auto mb-4"></div>
+                <p class="text-gray-600">Loading article...</p>
+            </div>
+
+            <!-- Error State -->
+            <div id="errorState" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
+                <div class="flex items-center">
+                    <i class="fas fa-exclamation-triangle text-red-500 mr-3"></i>
+                    <div>
+                        <h3 class="text-lg font-medium text-red-800">Error</h3>
+                        <p id="errorMessage" class="text-red-600 mt-1"></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Article Content -->
+            <div id="articleContent" class="hidden">
+                <!-- Article Header -->
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex-1">
+                            <h1 id="articleTitle" class="text-3xl font-bold text-gray-900 mb-2"></h1>
+                            <div class="flex items-center text-sm text-gray-500 space-x-4">
+                                <span id="articleHost"><i class="fas fa-globe mr-1"></i></span>
+                                <span id="articleDate"><i class="fas fa-calendar mr-1"></i></span>
+                                <span id="articleOrigin"><i class="fas fa-rss mr-1"></i></span>
+                            </div>
+                        </div>
+                        <div class="ml-4">
+                            <a id="externalLink" href="#" target="_blank" class="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-800 text-sm rounded-full hover:bg-blue-200">
+                                <i class="fas fa-external-link-alt mr-2"></i>
+                                View Original
+                            </a>
+                        </div>
+                    </div>
+
+                    <!-- Readability Overview -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+                        <div class="metric-card readability-score bg-gradient-to-r from-green-400 to-blue-500 p-4 rounded-lg text-white">
+                            <div class="text-sm opacity-90">Flesch Score</div>
+                            <div id="fleschScore" class="text-2xl font-bold">-</div>
+                        </div>
+                        <div class="metric-card readability-score secondary p-4 rounded-lg text-white">
+                            <div class="text-sm opacity-90">Grade Level</div>
+                            <div id="gradeLevel" class="text-2xl font-bold">-</div>
+                        </div>
+                        <div class="metric-card readability-score tertiary p-4 rounded-lg text-white">
+                            <div class="text-sm opacity-90">Words</div>
+                            <div id="wordCount" class="text-2xl font-bold">-</div>
+                        </div>
+                        <div class="metric-card readability-score bg-gradient-to-r from-purple-400 to-pink-500 p-4 rounded-lg text-white">
+                            <div class="text-sm opacity-90">Sentences</div>
+                            <div id="sentenceCount" class="text-2xl font-bold">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Article Summary (if available) -->
+                <div id="summarySection" class="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-8 hidden">
+                    <h2 class="text-xl font-semibold text-blue-900 mb-4">
+                        <i class="fas fa-file-text mr-2"></i>
+                        Article Summary
+                    </h2>
+                    <div id="articleSummary" class="text-blue-800 leading-relaxed"></div>
+                    <div class="mt-4 text-sm text-blue-600">
+                        <span id="summaryInfo"></span>
+                    </div>
+                </div>
+
+                <!-- Article Body -->
+                <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
+                    <div id="articleBody" class="article-content text-gray-800 prose prose-lg max-w-none">
+                        <!-- Article content will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Detailed Readability Metrics -->
+                <div class="bg-white rounded-lg shadow-sm p-6">
+                    <h2 class="text-xl font-semibold text-gray-900 mb-6">
+                        <i class="fas fa-chart-bar mr-2"></i>
+                        Readability Analysis
+                    </h2>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div class="space-y-4">
+                            <h3 class="font-medium text-gray-900">Readability Scores</h3>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Flesch Reading Ease:</span>
+                                    <span id="fleschDetail" class="font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Flesch-Kincaid Grade:</span>
+                                    <span id="fleschKincaidDetail" class="font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">SMOG Index:</span>
+                                    <span id="smogDetail" class="font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Coleman-Liau Index:</span>
+                                    <span id="colemanLiauDetail" class="font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Gunning Fog:</span>
+                                    <span id="gunningFogDetail" class="font-medium">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <h3 class="font-medium text-gray-900">Text Statistics</h3>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Words:</span>
+                                    <span id="wordsDetail" class="font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Sentences:</span>
+                                    <span id="sentencesDetail" class="font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Paragraphs:</span>
+                                    <span id="paragraphsDetail" class="font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Characters:</span>
+                                    <span id="charactersDetail" class="font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Syllables:</span>
+                                    <span id="syllablesDetail" class="font-medium">-</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="space-y-4">
+                            <h3 class="font-medium text-gray-900">Advanced Metrics</h3>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Avg Syllables/Word:</span>
+                                    <span id="wordSyllablesDetail" class="font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Complex Words:</span>
+                                    <span id="complexWordsDetail" class="font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Dale-Chall Score:</span>
+                                    <span id="daleChallDetail" class="font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Dale-Chall Grade:</span>
+                                    <span id="daleChallGradeDetail" class="font-medium">-</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-gray-600">Spache Score:</span>
+                                    <span id="spacheDetail" class="font-medium">-</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <style>
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+
+    <script>
+        class ArticleDisplay {
+            constructor() {
+                this.articleId = this.getArticleIdFromUrl();
+                this.initializePage();
+            }
+
+            getArticleIdFromUrl() {
+                const urlParams = new URLSearchParams(window.location.search);
+                return urlParams.get('id');
+            }
+
+            async initializePage() {
+                if (!this.articleId) {
+                    this.showError('No article ID provided');
+                    return;
+                }
+
+                try {
+                    await this.loadArticle();
+                } catch (error) {
+                    console.error('Error initializing page:', error);
+                    this.showError('Failed to load article');
+                }
+            }
+
+            async loadArticle() {
+                this.showLoading();
+
+                try {
+                    const response = await fetch(`/api/articles/${this.articleId}`);
+
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || 'Failed to load article');
+                    }
+
+                    const article = await response.json();
+                    this.displayArticle(article);
+
+                } catch (error) {
+                    console.error('Error loading article:', error);
+                    this.showError(error.message);
+                } finally {
+                    this.hideLoading();
+                }
+            }
+
+            displayArticle(article) {
+                // Set page title
+                document.title = `${article.title || 'Article'} - News Analyzer`;
+
+                // Article header
+                document.getElementById('articleTitle').textContent = article.title || 'Untitled Article';
+
+                // Article metadata
+                const hostElement = document.getElementById('articleHost');
+                hostElement.innerHTML = `<i class="fas fa-globe mr-1"></i>${article.Host || 'Unknown'}`;
+
+                const dateElement = document.getElementById('articleDate');
+                if (article.publication_date) {
+                    const date = new Date(article.publication_date);
+                    dateElement.innerHTML = `<i class="fas fa-calendar mr-1"></i>${date.toLocaleDateString()}`;
+                } else {
+                    dateElement.innerHTML = `<i class="fas fa-calendar mr-1"></i>No date`;
+                }
+
+                const originElement = document.getElementById('articleOrigin');
+                if (article.origin) {
+                    originElement.innerHTML = `<i class="fas fa-rss mr-1"></i>${new URL(article.origin).hostname}`;
+                } else {
+                    originElement.innerHTML = `<i class="fas fa-rss mr-1"></i>No source`;
+                }
+
+                // External link
+                const externalLink = document.getElementById('externalLink');
+                externalLink.href = article.url;
+
+                // Readability overview cards
+                document.getElementById('fleschScore').textContent = article.Flesch ? article.Flesch.toFixed(1) : '-';
+                document.getElementById('gradeLevel').textContent = article['Flesch Kincaid'] ? article['Flesch Kincaid'].toFixed(1) : '-';
+                document.getElementById('wordCount').textContent = article.words || '-';
+                document.getElementById('sentenceCount').textContent = article.sentences || '-';
+
+                // Article summary (if available)
+                if (article.summary) {
+                    document.getElementById('articleSummary').textContent = article.summary;
+                    const summaryInfo = [];
+                    if (article.summary_model) summaryInfo.push(`Model: ${article.summary_model}`);
+                    if (article.summary_generated_at) {
+                        const genDate = new Date(article.summary_generated_at);
+                        summaryInfo.push(`Generated: ${genDate.toLocaleDateString()}`);
+                    }
+                    document.getElementById('summaryInfo').textContent = summaryInfo.join(' • ');
+                    document.getElementById('summarySection').classList.remove('hidden');
+                }
+
+                // Article content
+                const contentElement = document.getElementById('articleBody');
+                const content = article.content || article['Cleaned Data'] || 'No content available';
+                contentElement.innerHTML = content;
+
+                // Detailed readability metrics
+                this.displayReadabilityMetrics(article);
+
+                // Show content
+                document.getElementById('articleContent').classList.remove('hidden');
+            }
+
+            displayReadabilityMetrics(article) {
+                // Readability scores
+                document.getElementById('fleschDetail').textContent = article.Flesch ? article.Flesch.toFixed(2) : '-';
+                document.getElementById('fleschKincaidDetail').textContent = article['Flesch Kincaid'] ? article['Flesch Kincaid'].toFixed(2) : '-';
+                document.getElementById('smogDetail').textContent = article.Smog ? article.Smog.toFixed(2) : '-';
+                document.getElementById('colemanLiauDetail').textContent = article['Coleman Liau'] ? article['Coleman Liau'].toFixed(2) : '-';
+                document.getElementById('gunningFogDetail').textContent = article['Gunning Fog'] ? article['Gunning Fog'].toFixed(2) : '-';
+
+                // Text statistics
+                document.getElementById('wordsDetail').textContent = article.words || '-';
+                document.getElementById('sentencesDetail').textContent = article.sentences || '-';
+                document.getElementById('paragraphsDetail').textContent = article.paragraphs || '-';
+                document.getElementById('charactersDetail').textContent = article.characters || '-';
+                document.getElementById('syllablesDetail').textContent = article.syllables || '-';
+
+                // Advanced metrics
+                document.getElementById('wordSyllablesDetail').textContent = article['word syllables'] ? article['word syllables'].toFixed(2) : '-';
+                document.getElementById('complexWordsDetail').textContent = article['complex polysillabic words'] || '-';
+                document.getElementById('daleChallDetail').textContent = article['Dale Chall'] ? article['Dale Chall'].toFixed(2) : '-';
+                document.getElementById('daleChallGradeDetail').textContent = article['Dale Chall: Grade'] || '-';
+                document.getElementById('spacheDetail').textContent = article.Spache ? article.Spache.toFixed(2) : '-';
+            }
+
+            showLoading() {
+                document.getElementById('loadingState').classList.remove('hidden');
+            }
+
+            hideLoading() {
+                document.getElementById('loadingState').classList.add('hidden');
+            }
+
+            showError(message) {
+                document.getElementById('errorMessage').textContent = message;
+                document.getElementById('errorState').classList.remove('hidden');
+            }
+
+            hideError() {
+                document.getElementById('errorState').classList.add('hidden');
+            }
+        }
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', () => {
+            new ArticleDisplay();
+        });
+    </script>
+</body>
+</html>

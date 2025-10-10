@@ -200,8 +200,10 @@ async def get_todays_articles(limit: int = Query(100, ge=1, le=500)):
 
         # Convert to response format
         article_list = []
-        for article in articles:
+        for item in articles:
+            article = item["article"]
             article_list.append({
+                "_id": item["_id"],
                 "url": str(article.url),
                 "title": article.title,
                 "origin": article.origin,
@@ -210,7 +212,8 @@ async def get_todays_articles(limit: int = Query(100, ge=1, le=500)):
                 "content": article.content,
                 "cleaned_data": article.cleaned_data,
                 "summary_generated_at": article.summary_generated_at,
-                "summary_model": article.summary_model
+                "summary_model": article.summary_model,
+                "image_url": article.image_url
             })
 
         return {

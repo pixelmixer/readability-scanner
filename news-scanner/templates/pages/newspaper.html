@@ -578,7 +578,11 @@ function showError(message) {
             <div class="col-md-6 col-lg-4 mb-1">
                 <div class="card h-100">
                     <div class="card-body">
-                        <h5 class="card-title">${article.title || 'No Title'}</h5>
+                        <h5 class="card-title">
+                            <a href="/article?id=${article._id}" class="text-decoration-none text-dark">
+                                ${article.title || 'No Title'}
+                            </a>
+                        </h5>
 
                         ${article.image_url ? `
                             <div class="article-image mb-2">
