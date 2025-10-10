@@ -41,6 +41,7 @@ def _generate_preview(article: Dict[str, Any], max_length: int = 150) -> str:
 
 class SimilarArticleResponse(BaseModel):
     """Response model for similar articles."""
+    id: str
     url: str
     title: str
     host: str
@@ -107,10 +108,18 @@ async def get_similar_articles(
             if article["similarity_score"] >= similarity_threshold
         ]
 
+        # Get article IDs for the filtered articles
+        article_ids = {}
+        if filtered_articles:
+            urls = [article["url"] for article in filtered_articles]
+            id_query = await collection.find({"url": {"$in": urls}}, {"url": 1}).to_list(length=len(urls))
+            article_ids = {doc["url"]: str(doc["_id"]) for doc in id_query}
+
         return SimilarArticlesResponse(
             article_url=article_url,
             similar_articles=[
                 SimilarArticleResponse(
+                    id=article_ids.get(article["url"], ""),
                     url=article["url"],
                     title=article["title"],
                     host=article["host"],
@@ -168,8 +177,16 @@ async def get_similar_articles_by_url(
             if article["similarity_score"] >= similarity_threshold
         ]
 
+        # Get article IDs for the filtered articles
+        article_ids = {}
+        if filtered_articles:
+            urls = [article["url"] for article in filtered_articles]
+            id_query = await collection.find({"url": {"$in": urls}}, {"url": 1}).to_list(length=len(urls))
+            article_ids = {doc["url"]: str(doc["_id"]) for doc in id_query}
+
         return [
             SimilarArticleResponse(
+                id=article_ids.get(article["url"], ""),
                 url=article["url"],
                 title=article["title"],
                 host=article["host"],
