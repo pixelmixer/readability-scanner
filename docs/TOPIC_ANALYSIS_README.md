@@ -62,7 +62,7 @@ python scripts/topic_analysis_setup.py stats
 
 #### Get Similar Articles
 ```http
-GET /api/topics/similar/{article_url}?limit=10&similarity_threshold=0.6
+GET /api/topics/similar?title={article_title}&limit=10&similarity_threshold=0.6
 ```
 
 #### Get Article Topic Groups
@@ -231,7 +231,7 @@ docker-compose logs -f celery-worker
 python scripts/topic_analysis_setup.py stats
 
 # Test with specific article
-curl "http://localhost:30005/api/topics/similar/https://example.com/article"
+curl "http://localhost:30005/api/topics/similar?title=Example%20Article%20Title"
 
 # Check Celery task status
 curl "http://localhost:30006/api/workers"

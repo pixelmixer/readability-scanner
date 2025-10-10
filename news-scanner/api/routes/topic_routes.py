@@ -65,18 +65,18 @@ class SimilarArticlesResponse(BaseModel):
     total_found: int
 
 
-@router.get("/similar/{article_url:path}", response_model=SimilarArticlesResponse)
+@router.get("/similar", response_model=SimilarArticlesResponse)
 async def get_similar_articles(
-    article_url: str,
+    title: str = Query(..., description="Title of the article to find similar articles for"),
     limit: int = Query(5, ge=1, le=20, description="Maximum number of similar articles to return"),
     similarity_threshold: float = Query(0.6, ge=0.0, le=1.0, description="Minimum similarity score"),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """
-    Get articles similar to the specified article.
+    Get articles similar to the specified article by title.
 
     Args:
-        article_url: URL of the article to find similar articles for
+        title: Title of the article to find similar articles for
         limit: Maximum number of similar articles to return
         similarity_threshold: Minimum similarity score (0-1)
         db: Database connection
@@ -85,11 +85,15 @@ async def get_similar_articles(
         List of similar articles with metadata
     """
     try:
-        # Check if article exists
+        # Find article by title (case-insensitive partial match)
         collection = db["documents"]
-        article = await collection.find_one({"url": article_url})
+        article = await collection.find_one({
+            "title": {"$regex": title, "$options": "i"}
+        })
         if not article:
-            raise HTTPException(status_code=404, detail="Article not found")
+            raise HTTPException(status_code=404, detail=f"Article with title containing '{title}' not found")
+
+        article_url = article["url"]
 
         # Get similar articles
         similar_articles = await ml_client.get_similar_articles_for_display(
@@ -110,7 +114,7 @@ async def get_similar_articles(
                     url=article["url"],
                     title=article["title"],
                     host=article["host"],
-                    publication_date=article["publication_date"].isoformat() if article["publication_date"] else None,
+                    publication_date=article["publication_date"] if isinstance(article["publication_date"], str) else (article["publication_date"].isoformat() if article["publication_date"] else None),
                     similarity_score=article["similarity_score"],
                     preview=article["preview"]
                 )
@@ -122,7 +126,7 @@ async def get_similar_articles(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting similar articles for {article_url}: {e}")
+        logger.error(f"Error getting similar articles for title '{title}': {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
@@ -156,8 +160,8 @@ async def get_article_topics(
                 topic_id=topic["topic_id"],
                 article_count=topic["article_count"],
                 shared_summary=topic.get("shared_summary"),
-                summary_generated_at=topic.get("summary_generated_at").isoformat() if topic.get("summary_generated_at") else None,
-                created_at=topic["created_at"].isoformat()
+                summary_generated_at=topic.get("summary_generated_at") if isinstance(topic.get("summary_generated_at"), str) else (topic.get("summary_generated_at").isoformat() if topic.get("summary_generated_at") else None),
+                created_at=topic["created_at"] if isinstance(topic["created_at"], str) else topic["created_at"].isoformat()
             )
             for topic in topic_groups
         ]
@@ -195,8 +199,8 @@ async def get_all_topic_groups(
                 topic_id=topic["topic_id"],
                 article_count=topic["article_count"],
                 shared_summary=topic.get("shared_summary"),
-                summary_generated_at=topic.get("summary_generated_at").isoformat() if topic.get("summary_generated_at") else None,
-                created_at=topic["created_at"].isoformat()
+                summary_generated_at=topic.get("summary_generated_at") if isinstance(topic.get("summary_generated_at"), str) else (topic.get("summary_generated_at").isoformat() if topic.get("summary_generated_at") else None),
+                created_at=topic["created_at"] if isinstance(topic["created_at"], str) else topic["created_at"].isoformat()
             )
             for topic in topic_groups
         ]
@@ -235,7 +239,7 @@ async def get_topic_group_details(
                 "url": article.get("url"),
                 "title": article.get("title", "Untitled"),
                 "host": article.get("Host", ""),
-                "publication_date": article.get("publication_date").isoformat() if article.get("publication_date") else None,
+                "publication_date": article.get("publication_date") if isinstance(article.get("publication_date"), str) else (article.get("publication_date").isoformat() if article.get("publication_date") else None),
                 "preview": _generate_preview(article)
             })
 
@@ -243,8 +247,8 @@ async def get_topic_group_details(
             "topic_id": topic_group["topic_id"],
             "article_count": topic_group["article_count"],
             "shared_summary": topic_group.get("shared_summary"),
-            "summary_generated_at": topic_group.get("summary_generated_at").isoformat() if topic_group.get("summary_generated_at") else None,
-            "created_at": topic_group["created_at"].isoformat(),
+            "summary_generated_at": topic_group.get("summary_generated_at") if isinstance(topic_group.get("summary_generated_at"), str) else (topic_group.get("summary_generated_at").isoformat() if topic_group.get("summary_generated_at") else None),
+            "created_at": topic_group["created_at"] if isinstance(topic_group["created_at"], str) else topic_group["created_at"].isoformat(),
             "articles": articles,
             "similarity_scores": topic_group.get("similarity_scores", [])
         }

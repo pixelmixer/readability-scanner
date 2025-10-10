@@ -71,9 +71,9 @@
                 <div class="flex space-x-4">
                     <div class="flex-1">
                         <input
-                            type="url"
-                            id="articleUrl"
-                            placeholder="Enter article URL to find similar articles..."
+                            type="text"
+                            id="articleTitle"
+                            placeholder="Enter article title to find similar articles..."
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                         >
                     </div>
@@ -147,17 +147,17 @@
     <script>
         class ArticleViewer {
             constructor() {
-                this.articleUrl = '';
+                this.articleTitle = '';
                 this.initializeEventListeners();
                 this.checkUrlParameters();
             }
 
             initializeEventListeners() {
                 const searchBtn = document.getElementById('searchBtn');
-                const articleUrlInput = document.getElementById('articleUrl');
+                const articleTitleInput = document.getElementById('articleTitle');
 
                 searchBtn.addEventListener('click', () => this.searchSimilarArticles());
-                articleUrlInput.addEventListener('keypress', (e) => {
+                articleTitleInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
                         this.searchSimilarArticles();
                     }
@@ -165,12 +165,12 @@
             }
 
             checkUrlParameters() {
-                // Check for URL parameter (e.g., ?url=...)
+                // Check for title parameter (e.g., ?title=...)
                 const urlParams = new URLSearchParams(window.location.search);
-                const urlParam = urlParams.get('url');
-                if (urlParam) {
-                    document.getElementById('articleUrl').value = urlParam;
-                    // Auto-search when URL parameter is present
+                const titleParam = urlParams.get('title');
+                if (titleParam) {
+                    document.getElementById('articleTitle').value = decodeURIComponent(titleParam);
+                    // Auto-search when title parameter is present
                     setTimeout(() => {
                         this.searchSimilarArticles();
                     }, 100); // Small delay to ensure DOM is ready
@@ -179,20 +179,20 @@
 
 
             async searchSimilarArticles() {
-                const articleUrl = document.getElementById('articleUrl').value.trim();
-                if (!articleUrl) {
-                    this.showError('Please enter an article URL');
+                const articleTitle = document.getElementById('articleTitle').value.trim();
+                if (!articleTitle) {
+                    this.showError('Please enter an article title');
                     return;
                 }
 
-                this.articleUrl = articleUrl;
+                this.articleTitle = articleTitle;
                 this.showLoading();
                 this.hideError();
                 this.hideResults();
 
                 try {
-                    // Search for similar articles
-                    const similarResponse = await fetch(`/api/topics/similar/${encodeURIComponent(articleUrl)}?limit=10&similarity_threshold=0.6`);
+                    // Search for similar articles by title
+                    const similarResponse = await fetch(`/api/topics/similar?title=${encodeURIComponent(articleTitle)}&limit=10&similarity_threshold=0.6`);
 
                     if (!similarResponse.ok) {
                         const errorData = await similarResponse.json();
@@ -201,8 +201,8 @@
 
                     const similarData = await similarResponse.json();
 
-                    // Get topic groups
-                    const topicsResponse = await fetch(`/api/topics/article/${encodeURIComponent(articleUrl)}/topics`);
+                    // Get topic groups for the found article
+                    const topicsResponse = await fetch(`/api/topics/article/${encodeURIComponent(similarData.article_url)}/topics`);
                     const topicsData = topicsResponse.ok ? await topicsResponse.json() : [];
 
                     this.displayResults(similarData, topicsData);
@@ -224,18 +224,23 @@
 
             displaySourceArticle(articleUrl) {
                 const sourceArticleDiv = document.getElementById('sourceArticle');
+                // Display the searched title and the found article URL
+                const displayTitle = this.articleTitle || 'Article';
                 sourceArticleDiv.innerHTML = `
-                    <div class="flex items-center justify-between">
-                        <div class="flex-1">
-                            <a href="${articleUrl}" target="_blank" class="text-blue-600 hover:text-blue-800 break-all">
-                                ${articleUrl}
-                            </a>
-                        </div>
-                        <div class="ml-4">
-                            <a href="${articleUrl}" target="_blank" class="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full hover:bg-blue-200">
-                                <i class="fas fa-external-link-alt mr-1"></i>
-                                View Article
-                            </a>
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex-1">
+                                <h3 class="text-lg font-semibold text-gray-800 mb-2">${displayTitle}</h3>
+                                <a href="${articleUrl}" target="_blank" class="text-blue-600 hover:text-blue-800 break-all text-sm">
+                                    ${articleUrl}
+                                </a>
+                            </div>
+                            <div class="ml-4">
+                                <a href="${articleUrl}" target="_blank" class="text-sm bg-blue-100 text-blue-800 px-3 py-1 rounded-full hover:bg-blue-200">
+                                    <i class="fas fa-external-link-alt mr-1"></i>
+                                    View Article
+                                </a>
+                            </div>
                         </div>
                     </div>
                 `;
