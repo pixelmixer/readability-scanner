@@ -94,8 +94,6 @@ celery_app.conf.update(
     result_backend_transport_options={'visibility_timeout': 3600},
 
     # Task execution settings
-    task_time_limit=30 * 60,      # Hard time limit: 30 minutes
-    task_soft_time_limit=25 * 60, # Soft time limit: 25 minutes
     task_max_retries=3,           # Maximum retry attempts
     task_default_retry_delay=60,  # Default retry delay: 1 minute
 

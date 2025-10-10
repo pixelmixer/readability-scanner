@@ -164,6 +164,7 @@ class TopicService:
             logger.info(f"Topic grouping completed. Created {len(topic_groups)} topic groups")
 
             return {
+                "success": True,
                 "total_articles": len(articles),
                 "processed_articles": len(processed_articles),
                 "topic_groups": len(topic_groups),
@@ -172,7 +173,10 @@ class TopicService:
 
         except Exception as e:
             logger.error(f"Failed to group articles by topics: {e}")
-            return {"error": str(e)}
+            logger.error(f"Exception type: {type(e).__name__}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return {"success": False, "error": str(e) or f"{type(e).__name__}: {e}"}
 
     async def _store_topic_groups(self, topic_groups: List[Dict[str, Any]]) -> None:
         """Store topic groups in the database."""
