@@ -282,6 +282,7 @@
     .full-content .card-text {
         color: #f9fafb !important;
     }
+
 }
 
 /* Full width expanded articles - styling handled by .expanded-card class */
@@ -291,6 +292,7 @@
     padding-left: 0 !important;
     padding-right: 0 !important;
 }
+
 
 /* Remove left and right borders from article cards */
 .card {
@@ -888,6 +890,52 @@ function restoreArticleLayout(articleContainer, articleCard) {
         row.find('.card').show();
     }
 }
+
+// Double-tap to close expanded articles
+$(document).ready(function() {
+    let lastTap = 0;
+    let tapCount = 0;
+
+    // Add touch event listeners to article cards
+    $(document).on('touchend', '.expanded-card', function(e) {
+        const currentTime = new Date().getTime();
+        const tapGap = currentTime - lastTap;
+
+        if (tapGap < 300 && tapGap > 0) {
+            // Double tap detected
+            tapCount++;
+            if (tapCount === 2) {
+                // Find the article ID from the button within this card
+                const articleCard = $(this);
+                const toggleButton = articleCard.find('.btn-outline-secondary');
+                if (toggleButton.length > 0) {
+                    const articleId = toggleButton.attr('onclick').match(/toggleArticleContent\('([^']+)'\)/);
+                    if (articleId && articleId[1]) {
+                        console.log('🎯 Double-tap detected on expanded article:', articleId[1]);
+                        toggleArticleContent(articleId[1]);
+                    }
+                }
+                tapCount = 0;
+            }
+        } else {
+            tapCount = 1;
+        }
+        lastTap = currentTime;
+    });
+
+    // Also add click-based double-tap for desktop testing
+    $(document).on('dblclick', '.expanded-card', function(e) {
+        const articleCard = $(this);
+        const toggleButton = articleCard.find('.btn-outline-secondary');
+        if (toggleButton.length > 0) {
+            const articleId = toggleButton.attr('onclick').match(/toggleArticleContent\('([^']+)'\)/);
+            if (articleId && articleId[1]) {
+                console.log('🖱️ Double-click detected on expanded article:', articleId[1]);
+                toggleArticleContent(articleId[1]);
+            }
+        }
+    });
+});
 
 // Set page logging
 window.pageLogged = true;
