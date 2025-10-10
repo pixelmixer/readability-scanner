@@ -163,6 +163,32 @@
         }
         </script>
 
+        <!-- Theme Management - Ensure consistency with Automatic Dark Mode -->
+        <script>
+        // Function to apply theme based on system preference (matches Automatic Dark Mode)
+        function applyTheme() {
+            const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+            document.documentElement.setAttribute('data-bs-theme', prefersDark ? 'dark' : 'light');
+
+            // Force CSS variables to update for felt background
+            if (prefersDark) {
+                document.documentElement.style.setProperty('--felt', '#301934');
+                document.documentElement.style.setProperty('--felt-dark', '#241726');
+                document.documentElement.style.setProperty('--felt-light', '#492b50');
+            } else {
+                document.documentElement.style.setProperty('--felt', '#f5f1e8');
+                document.documentElement.style.setProperty('--felt-dark', '#e8e3d8');
+                document.documentElement.style.setProperty('--felt-light', '#faf7f2');
+            }
+        }
+
+        // Apply theme on load
+        applyTheme();
+
+        // Listen for theme changes (matches Automatic Dark Mode behavior)
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+        </script>
+
         <!-- Build version logging for all pages -->
         <script>
         // Only log if we don't have specific page logging

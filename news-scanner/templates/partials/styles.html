@@ -13,7 +13,7 @@
 <!-- Modern Custom Styles -->
 <style>
     :root {
-        /* Felt Background Colors - Light Mode */
+        /* Felt Background Colors - Set by JavaScript for Automatic Dark Mode compatibility */
         --felt: #f5f1e8;       /* light beige base felt color */
         --felt-dark: #e8e3d8;  /* deeper shadow */
         --felt-light: #faf7f2; /* subtle highlight */
@@ -59,14 +59,9 @@
         --border-color: #e2e8f0;
     }
 
-    /* Dark mode support */
+    /* Dark mode support - Colors handled by JavaScript for Automatic Dark Mode compatibility */
     @media (prefers-color-scheme: dark) {
         :root {
-            /* Felt Background Colors - Dark Mode */
-            --felt: #301934;       /* base felt color */
-            --felt-dark: #241726;  /* deeper shadow */
-            --felt-light: #492b50; /* subtle highlight */
-
             --bg-primary: #0f172a;
             --bg-secondary: #1e293b;
             --bg-tertiary: #334155;
@@ -95,7 +90,7 @@
         -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Felt Background Styles */
+    /* Felt Background Styles - Colors dynamically set by JavaScript */
     .felt-background {
         position: fixed;
         top: 0;
@@ -104,7 +99,7 @@
         height: 100vh;
         z-index: -1;
         background:
-          /* soft global highlight / vignette - light mode */
+          /* soft global highlight / vignette */
           radial-gradient(1200px 600px at 10% 10%, rgba(255,255,255,0.04), transparent 8%),
           radial-gradient(900px 450px at 90% 90%, rgba(0,0,0,0.12), transparent 25%),
           /* subtle directional shading */
@@ -115,23 +110,6 @@
           linear-gradient(var(--felt), var(--felt));
         background-blend-mode: overlay, multiply, overlay, overlay, normal;
         overflow: hidden;
-    }
-
-    /* Dark mode felt background adjustments */
-    @media (prefers-color-scheme: dark) {
-        .felt-background {
-            background:
-              /* soft global highlight / vignette - dark mode */
-              radial-gradient(1200px 600px at 10% 10%, rgba(255,255,255,0.03), transparent 8%),
-              radial-gradient(900px 450px at 90% 90%, rgba(0,0,0,0.18), transparent 25%),
-              /* subtle directional shading */
-              linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.06) 60%),
-              /* very fine vertical fiber hint (repeating tiny lines) */
-              repeating-linear-gradient(180deg, rgba(255,255,255,0.006) 0 1px, transparent 1px 5px),
-              /* base color layer last so it's tintable via var */
-              linear-gradient(var(--felt), var(--felt));
-            background-blend-mode: overlay, multiply, overlay, overlay, normal;
-        }
     }
 
     /* The 'fuzz' layer: SVG turbulence noise encoded as data URI */
@@ -192,6 +170,13 @@
         color: var(--primary-color) !important;
     }
 
+    /* Dark mode navbar adjustments */
+    @media (prefers-color-scheme: dark) {
+        .navbar-brand {
+            color: #ffffff !important; /* Pure white for dark mode */
+        }
+    }
+
     .navbar-nav .nav-link {
         color: var(--text-secondary) !important;
         font-weight: 500;
@@ -231,11 +216,22 @@
         /* Hover effects removed for cleaner design */
     }
 
-    .card-header-modern {
-        background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%);
-        border-bottom: 1px solid var(--border-color);
-        border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
-        padding: var(--spacing-lg);
+    /* Modern Card Styles */
+    .card {
+        background: rgba(255, 255, 255, 0.85);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(0, 0, 0, 0.08);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-sm);
+        transition: all 0.3s ease;
+    }
+
+    /* Dark mode card adjustments for all pages */
+    @media (prefers-color-scheme: dark) {
+        .card {
+            background: rgba(255, 255, 255, 0.12) !important;
+            border: 1px solid rgba(255, 255, 255, 0.15) !important;
+        }
     }
 
     /* Modern Buttons */
@@ -479,13 +475,6 @@
         height: 100%;
     }
 
-    /* Dark mode article card adjustments */
-    @media (prefers-color-scheme: dark) {
-        .article-card {
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-    }
 
     .article-card:hover {
         /* Hover effects removed for cleaner design */
