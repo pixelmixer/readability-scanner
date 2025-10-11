@@ -106,6 +106,26 @@
             .metric-card {
                 margin-bottom: var(--spacing-sm);
             }
+
+            /* Remove all padding from container-fluid except in navbar */
+            .container-fluid:not(nav .container-fluid) {
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+            }
+
+            /* Remove all padding from articleContent */
+            #articleContent {
+                padding-left: 0 !important;
+                padding-right: 0 !important;
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+            }
+
+            /* Restore normal margins for card-modern elements */
+            .card-modern {
+                margin-left: 0 !important;
+                margin-right: 0 !important;
+            }
         }
     </style>
 {% endblock %}
@@ -132,7 +152,7 @@
     <!-- Article Content -->
     <div id="articleContent" class="d-none">
         <!-- Article Header -->
-        <div class="card-modern mb-4">
+        <div>
             <div class="card-body">
                 <div class="d-flex flex-column flex-md-row justify-content-between align-items-start mb-3">
                     <div class="flex-grow-1">
@@ -194,12 +214,10 @@
             </div>
         </div>
 
-        <!-- Article Body -->
-        <div class="card-modern mb-4">
-            <div class="card-body">
-                <div id="articleBody" class="article-content text-body">
-                    <!-- Article content will be populated here -->
-                </div>
+        <!-- Article Body - No card wrapper for better mobile experience -->
+        <div class="mb-4">
+            <div id="articleBody" class="article-content text-body">
+                <!-- Article content will be populated here -->
             </div>
         </div>
 

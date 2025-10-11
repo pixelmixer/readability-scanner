@@ -5,18 +5,16 @@
 {% block content %}
 <div class="container-fluid">
     <!-- Header -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <h1 class="h2 mb-0">Today's News</h1>
-                    <p class="text-muted mb-0" id="current-date">Loading...</p>
-                </div>
-                <div>
-                    <button id="refresh-news-btn" class="btn btn-outline-secondary">
-                        <i class="fas fa-sync"></i> Refresh
-                    </button>
-                </div>
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <h1 class="h2 mb-0">Today's News</h1>
+                <p class="text-muted mb-0" id="current-date">Loading...</p>
+            </div>
+            <div>
+                <button id="refresh-news-btn" class="btn btn-outline-secondary">
+                    <i class="fas fa-sync"></i> Refresh
+                </button>
             </div>
         </div>
     </div>
@@ -346,10 +344,10 @@
 
 /* Full width expanded articles - styling handled by .expanded-card class */
 
-/* Remove horizontal padding from col-12 for expanded articles */
-.col-12 {
-    padding-left: 0 !important;
-    padding-right: 0 !important;
+/* Ensure article-item never exceeds screen width */
+.article-item {
+    max-width: 100vw !important;
+    box-sizing: border-box;
 }
 
 
@@ -392,15 +390,31 @@
         padding-right: 0 !important;
     }
 
-    /* Adjust grid for smaller screens */
-    #articles-grid {
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        grid-template-rows: masonry;
-        gap: 0.75rem;
-        padding: 0.75rem 0;
+    /* Remove all padding from container-fluid globally on mobile except in navbar */
+    .container-fluid:not(nav .container-fluid) {
+        padding-left: 0 !important;
+        padding-right: 0 !important;
     }
 
-    /* First article spans only 1 column and 1 row on mobile */
+    /* Make article content fill full width with minimal padding */
+    .article-content {
+        padding-left: 0.75rem !important;
+        padding-right: 0.75rem !important;
+    }
+
+    /* Adjust grid for smaller screens - single column full width */
+    #articles-grid {
+        grid-template-columns: 1fr; /* Single column for full width */
+        gap: 0.5rem;
+        padding: 0.5rem 0;
+    }
+
+    /* All articles are full width on mobile */
+    .article-item {
+        grid-column: span 1;
+    }
+
+    /* First article still spans 1 column on mobile */
     .article-item:first-child {
         grid-column: span 1;
         grid-row: span 1;
