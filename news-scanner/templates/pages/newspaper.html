@@ -147,6 +147,39 @@
     color: var(--text-primary);
 }
 
+/* Responsive iframe handling for expanded articles */
+.full-content .iframe-container {
+    position: relative;
+    width: 100%;
+    height: 0;
+    overflow: hidden;
+    background: var(--bg-secondary);
+    margin: var(--spacing-md) 0;
+}
+
+.full-content .iframe-container iframe {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    border: none;
+}
+
+/* YouTube specific styling */
+.full-content .youtube-iframe-container {
+    padding-bottom: 56.25%; /* 16:9 aspect ratio */
+}
+
+/* Other iframe aspect ratios */
+.full-content .iframe-4-3 {
+    padding-bottom: 75%; /* 4:3 aspect ratio */
+}
+
+.full-content .iframe-1-1 {
+    padding-bottom: 100%; /* 1:1 aspect ratio */
+}
+
 /* Typography normalization for full-content */
 .full-content h1,
 .full-content h2,
@@ -647,11 +680,58 @@ function showError(message) {
         $('#articles-grid').append(articleHtml);
     });
 
-            console.log('Finished rendering articles');
+    // Make iframes responsive in all articles
+    makeIframesResponsive();
+
+    console.log('Finished rendering articles');
         } catch (error) {
             console.error('Error in renderNewspaperLayout:', error);
             showError('Error rendering articles: ' + error.message);
         }
+}
+
+function makeIframesResponsive() {
+    // Process iframes in article content and full content
+    const containers = document.querySelectorAll('.article-content, .full-content');
+    containers.forEach(container => {
+        const iframes = container.querySelectorAll('iframe');
+        iframes.forEach(iframe => {
+            // Skip if already wrapped
+            if (iframe.parentElement.classList.contains('iframe-container')) {
+                return;
+            }
+
+            // Get iframe dimensions
+            const width = parseInt(iframe.getAttribute('width') || iframe.style.width || 560);
+            const height = parseInt(iframe.getAttribute('height') || iframe.style.height || 315);
+
+            // Calculate aspect ratio
+            const aspectRatio = height / width;
+            const paddingBottom = (aspectRatio * 100) + '%';
+
+            // Create wrapper
+            const wrapper = document.createElement('div');
+            wrapper.className = 'iframe-container';
+            wrapper.style.paddingBottom = paddingBottom;
+
+            // Check if it's YouTube
+            const src = iframe.getAttribute('src') || '';
+            if (src.includes('youtube.com') || src.includes('youtu.be')) {
+                wrapper.classList.add('youtube-iframe-container');
+                wrapper.style.paddingBottom = '56.25%'; // Force 16:9 for YouTube
+            }
+
+            // Wrap the iframe
+            iframe.parentNode.insertBefore(wrapper, iframe);
+            wrapper.appendChild(iframe);
+
+            // Remove original width/height attributes and styles
+            iframe.removeAttribute('width');
+            iframe.removeAttribute('height');
+            iframe.style.width = '';
+            iframe.style.height = '';
+        });
+    });
 }
 
 function toggleArticleContent(articleId) {
@@ -727,6 +807,8 @@ function toggleArticleContent(articleId) {
         contentDiv.hide();
         if (fullContentDiv.length > 0) {
             fullContentDiv.show();
+            // Make iframes responsive in the newly shown full content
+            makeIframesResponsive();
         }
         contentDiv.addClass('expanded');
         contentDiv.css('max-height', 'none').css('overflow', 'visible');
