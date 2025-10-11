@@ -1,12 +1,10 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Article Viewer - {{ title }}</title>
-    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <style>
+{% extends "layouts/base.html" %}
+
+{% block title %}Article Viewer - {{ title }}{% endblock %}
+
+{% block extra_styles %}
+<!-- Article viewer specific styles -->
+<style>
         .similarity-bar {
             background: linear-gradient(90deg, #3b82f6 0%, #10b981 100%);
         }
@@ -16,82 +14,70 @@
         .article-card:hover {
             /* Hover effects removed for consistency */
         }
-        .loading-spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid #3498db;
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
+
+        /* Mobile responsiveness fixes */
+        .article-content {
+            word-wrap: break-word;
+            overflow-wrap: break-word;
+            hyphens: auto;
         }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
+
+        @media (max-width: 768px) {
+            .article-content p,
+            .article-content h1,
+            .article-content h2,
+            .article-content h3,
+            .article-content h4,
+            .article-content h5,
+            .article-content h6 {
+                word-wrap: break-word;
+                overflow-wrap: break-word;
+                hyphens: auto;
+                max-width: 100%;
+            }
+
+            .article-content img {
+                max-width: 100%;
+                height: auto;
+            }
         }
     </style>
-</head>
-<body class="bg-gray-50">
-    <div class="min-h-screen">
-        <!-- Header -->
-        <header class="bg-white shadow-sm border-b">
-            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div class="flex justify-between items-center py-4">
-                    <div class="flex items-center">
-                        <a href="/" class="text-xl font-bold text-gray-900">
-                            <i class="fas fa-newspaper mr-2"></i>
-                            News Analyzer
-                        </a>
-                    </div>
-                    <div class="flex items-center space-x-4">
-                        <a href="/sources" class="text-gray-600 hover:text-gray-900">
-                            <i class="fas fa-rss mr-1"></i>
-                            Sources
-                        </a>
-                        <a href="/article-search" class="text-gray-600 hover:text-gray-900">
-                            <i class="fas fa-search mr-1"></i>
-                            Search Articles
-                        </a>
-                        <a href="/daily" class="text-gray-600 hover:text-gray-900">
-                            <i class="fas fa-chart-line mr-1"></i>
-                            Daily Report
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </header>
+{% endblock %}
 
-        <!-- Main Content -->
-        <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <!-- Article URL Input -->
-            <div class="bg-white rounded-lg shadow-sm p-6 mb-8">
-                <h2 class="text-2xl font-bold text-gray-900 mb-4">
-                    <i class="fas fa-search mr-2"></i>
+{% block content %}
+<div class="container-fluid">
+        <!-- Article URL Input -->
+        <div class="card-modern mb-4">
+            <div class="card-body">
+                <h2 class="text-heading mb-3">
+                    <i class="fas fa-search me-2"></i>
                     Find Similar Articles
                 </h2>
-                <div class="flex space-x-4">
-                    <div class="flex-1">
+                <div class="d-flex gap-3">
+                    <div class="flex-grow-1">
                         <input
                             type="text"
                             id="articleTitle"
                             placeholder="Enter article title to find similar articles..."
-                            class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                            class="form-control"
                         >
                     </div>
                     <button
                         id="searchBtn"
-                        class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                        class="btn btn-modern-primary"
                     >
-                        <i class="fas fa-search mr-2"></i>
+                        <i class="fas fa-search me-2"></i>
                         Find Similar
                     </button>
                 </div>
             </div>
+        </div>
 
-            <!-- Loading State -->
-            <div id="loadingState" class="hidden text-center py-12">
-                <div class="loading-spinner mx-auto mb-4"></div>
-                <p class="text-gray-600">Finding similar articles...</p>
-            </div>
+        <!-- Loading State -->
+        <div id="loadingState" class="hidden text-center py-5">
+            <div class="spinner-modern mx-auto mb-4"></div>
+            <p class="text-muted">Finding similar articles...</p>
+        </div>
 
             <!-- Error State -->
             <div id="errorState" class="hidden bg-red-50 border border-red-200 rounded-lg p-6 mb-8">
@@ -364,10 +350,9 @@
             }
         }
 
-        // Initialize the application
-        document.addEventListener('DOMContentLoaded', () => {
-            new ArticleViewer();
-        });
-    </script>
-</body>
-</html>
+// Initialize the application
+document.addEventListener('DOMContentLoaded', () => {
+    new ArticleViewer();
+});
+</script>
+{% endblock %}

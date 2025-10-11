@@ -333,14 +333,74 @@ def register_routes(app: FastAPI):
 
     # Article display page
     @app.get("/article", include_in_schema=False)
-    async def article_display_page(request: Request):
+    async def article_display_page(request: Request, id: str = None):
         """Serve the article display page for viewing individual articles."""
         from fastapi.templating import Jinja2Templates
+        from fastapi import HTTPException
+        from database.connection import get_database
+
+        article_data = None
+        if id:
+            try:
+                # Fetch article data server-side using the same logic as the API endpoint
+                from bson import ObjectId
+
+                # Validate ObjectId format
+                try:
+                    object_id = ObjectId(id)
+                except Exception:
+                    raise HTTPException(status_code=400, detail="Invalid article ID format")
+
+                db = await get_database()
+                collection = db["documents"]
+
+                # Find the article by ObjectId
+                article_doc = await collection.find_one({"_id": object_id})
+
+                if not article_doc:
+                    raise HTTPException(status_code=404, detail="Article not found")
+
+                # Convert ObjectId to string for JSON serialization
+                article_doc["_id"] = str(article_doc["_id"])
+
+                # Convert datetime objects to ISO format strings
+                if "publication_date" in article_doc and article_doc["publication_date"]:
+                    if hasattr(article_doc["publication_date"], 'isoformat'):
+                        article_doc["publication_date"] = article_doc["publication_date"].isoformat()
+                    else:
+                        article_doc["publication_date"] = str(article_doc["publication_date"])
+
+                if "date" in article_doc and article_doc["date"]:
+                    if hasattr(article_doc["date"], 'isoformat'):
+                        article_doc["date"] = article_doc["date"].isoformat()
+                    else:
+                        article_doc["date"] = str(article_doc["date"])
+
+                if "summary_generated_at" in article_doc and article_doc["summary_generated_at"]:
+                    if hasattr(article_doc["summary_generated_at"], 'isoformat'):
+                        article_doc["summary_generated_at"] = article_doc["summary_generated_at"].isoformat()
+                    else:
+                        article_doc["summary_generated_at"] = str(article_doc["summary_generated_at"])
+
+                # Handle Dale Chall Grade field that might be stored as list instead of string
+                if "Dale Chall: Grade" in article_doc and isinstance(article_doc["Dale Chall: Grade"], list):
+                    article_doc["Dale Chall: Grade"] = str(article_doc["Dale Chall: Grade"]).replace("[", "").replace("]", "")
+
+                article_data = article_doc
+
+            except HTTPException:
+                # Re-raise HTTP exceptions
+                raise
+            except Exception as e:
+                logger.error(f"Error fetching article {id} server-side: {e}")
+                # Continue with None, let client handle error
 
         templates = Jinja2Templates(directory="templates")
         return templates.TemplateResponse("pages/article_display.html", {
             "request": request,
-            "title": "Article Display"
+            "title": "Article Display",
+            "article": article_data,
+            "article_id": id or ""
         })
 
 
