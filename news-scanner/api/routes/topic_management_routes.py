@@ -4,7 +4,7 @@ API routes for topic analysis management and monitoring.
 
 import logging
 from typing import Dict, Any
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Form
 from pydantic import BaseModel
 
 from celery_app.tasks import (
@@ -38,7 +38,7 @@ class StatsResponse(BaseModel):
 
 @router.post("/generate-embeddings", response_model=TaskResponse)
 async def trigger_embedding_generation(
-    batch_size: int = 100,
+    batch_size: int = Form(100),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """
@@ -80,7 +80,7 @@ async def trigger_embedding_generation(
 
 @router.post("/generate-summary-embeddings", response_model=TaskResponse)
 async def trigger_summary_embedding_generation(
-    batch_size: int = 50,
+    batch_size: int = Form(50),
     db: AsyncIOMotorDatabase = Depends(get_database)
 ):
     """
