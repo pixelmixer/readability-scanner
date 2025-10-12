@@ -32,6 +32,7 @@ class SummaryStatsResponse(BaseModel):
     status_breakdown: Dict[str, int]
     summary_coverage: float
     articles_without_summaries: int
+    summary_embeddings_count: int
 
 
 @router.get("/stats", response_model=SummaryStatsResponse)
@@ -48,11 +49,15 @@ async def get_summary_statistics():
         # Get count of articles without summaries
         articles_without_summaries = await article_repository.count_articles_without_summaries()
 
+        # Get count of summary embeddings
+        summary_embeddings_count = await article_repository.count_summary_embeddings()
+
         return SummaryStatsResponse(
             total_articles=stats["total_articles"],
             status_breakdown=stats["status_breakdown"],
             summary_coverage=stats["summary_coverage"],
-            articles_without_summaries=articles_without_summaries
+            articles_without_summaries=articles_without_summaries,
+            summary_embeddings_count=summary_embeddings_count
         )
 
     except Exception as e:

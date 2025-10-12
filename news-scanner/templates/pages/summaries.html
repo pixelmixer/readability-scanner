@@ -82,6 +82,55 @@
                 </div>
             </div>
 
+            <!-- Summary Embeddings Statistics -->
+            <div class="row mb-4">
+                <div class="col-md-4">
+                    <div class="card bg-gradient-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="summaries-with-embeddings">-</h4>
+                                    <p class="card-text">Summary Embeddings</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-brain fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-gradient-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="summaries-needing-embeddings">-</h4>
+                                    <p class="card-text">Need Embeddings</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-hourglass-half fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card bg-gradient-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="embedding-coverage">-</h4>
+                                    <p class="card-text">Embedding Coverage</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="fas fa-chart-line fa-2x"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Progress Bar -->
             <div class="card mb-4">
                 <div class="card-body">
@@ -179,6 +228,9 @@
                             <div class="btn-group-vertical w-100 mb-3" role="group">
                                 <button type="button" class="btn btn-outline-success" id="trigger-summary-manual-btn">
                                     <i class="fas fa-file-text"></i> Generate Summaries
+                                </button>
+                                <button type="button" class="btn btn-outline-info" id="trigger-summary-embeddings-btn">
+                                    <i class="fas fa-brain"></i> Generate Summary Embeddings
                                 </button>
                                 <button type="button" class="btn btn-outline-secondary" id="trigger-dates-btn">
                                     <i class="fas fa-calendar"></i> Backfill Publication Dates
@@ -589,8 +641,65 @@ $(document).ready(function() {
         }
     });
 
+    $('#trigger-summary-embeddings-btn').click(function() {
+        const batchSize = prompt('Enter batch size for summary embedding generation (default: 50):', '50');
+        if (batchSize !== null) {
+            triggerSummaryEmbeddings(parseInt(batchSize) || 50);
+        }
+    });
+
     // Auto-refresh queue status every 30 seconds
     setInterval(loadQueueStatus, 30000);
+});
+
+function triggerSummaryEmbeddings(batchSize) {
+    const button = $('#trigger-summary-embeddings-btn');
+    const originalText = button.html();
+
+    button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Starting...');
+
+    $.post('/api/topic-management/generate-summary-embeddings', { batch_size: batchSize })
+        .done(function(response) {
+            if (response.success) {
+                addJobToHistory('summary-embeddings', response.task_id, 'PENDING');
+                showToast('Job Started', response.message, 'success');
+                loadQueueStatus();
+                loadSummaryEmbeddingStats();
+            } else {
+                showToast('Job Failed', response.message || 'Unknown error', 'error');
+            }
+        })
+        .fail(function(xhr) {
+            console.error('Error triggering summary embeddings:', xhr);
+            showToast('Job Failed', 'Error starting summary embedding generation. Please try again.', 'error');
+        })
+        .always(function() {
+            button.prop('disabled', false).html(originalText);
+        });
+}
+
+function loadSummaryEmbeddingStats() {
+    $.get('/api/summaries/stats')
+        .done(function(data) {
+            // Calculate summary embedding statistics
+            const totalSummaries = data.status_breakdown.completed || 0;
+            const summariesWithEmbeddings = data.summary_embeddings_count || 0;
+            const summariesNeedingEmbeddings = Math.max(0, totalSummaries - summariesWithEmbeddings);
+            const embeddingCoverage = totalSummaries > 0 ? ((summariesWithEmbeddings / totalSummaries) * 100) : 0;
+
+            $('#summaries-with-embeddings').text(summariesWithEmbeddings);
+            $('#summaries-needing-embeddings').text(summariesNeedingEmbeddings);
+            $('#embedding-coverage').text(embeddingCoverage.toFixed(1) + '%');
+        })
+        .fail(function(xhr) {
+            console.error('Error loading summary embedding stats:', xhr);
+        });
+}
+
+// Load embedding stats on page load
+$(document).ready(function() {
+    loadSummaryEmbeddingStats();
+    setInterval(loadSummaryEmbeddingStats, 30000); // Refresh every 30 seconds
 });
 
 // Set page logging
