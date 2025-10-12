@@ -400,7 +400,7 @@ class VectorSimilarityService:
                     "publication_date": 1,
                     "Host": 1,
                     "summary_embedding": 1,
-                    "_id": 1
+                    "_id": 0
                 }
             )
 

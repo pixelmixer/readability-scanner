@@ -110,7 +110,10 @@ async def trigger_summary_embedding_generation(
             )
 
         # Queue the task
-        result = batch_generate_summary_embeddings_task.delay(batch_size)
+        result = batch_generate_summary_embeddings_task.apply_async(
+            args=[batch_size],
+            queue='normal'
+        )
 
         return TaskResponse(
             success=True,
@@ -225,6 +228,83 @@ async def trigger_full_pipeline():
 
     except Exception as e:
         logger.error(f"Error triggering full pipeline: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/debug/summary-embeddings")
+async def debug_summary_embeddings(db: AsyncIOMotorDatabase = Depends(get_database)):
+    """
+    Debug endpoint to check summary embedding status.
+
+    Returns:
+        Detailed information about summary embeddings
+    """
+    try:
+        collection = db["documents"]
+
+        # Get counts
+        total_articles = await collection.count_documents({})
+        articles_with_summaries = await collection.count_documents({
+            "summary": {"$exists": True, "$ne": None, "$ne": ""},
+            "summary_processing_status": "completed"
+        })
+        articles_with_summary_embeddings = await collection.count_documents({
+            "summary_embedding": {"$exists": True}
+        })
+        articles_with_content_embeddings = await collection.count_documents({
+            "embedding": {"$exists": True}
+        })
+        articles_needing_summary_embeddings = await collection.count_documents({
+            "summary": {"$exists": True, "$ne": None, "$ne": ""},
+            "summary_processing_status": "completed",
+            "summary_embedding": {"$exists": False}
+        })
+
+        # Get sample with summary embedding
+        sample_with_embedding = None
+        if articles_with_summary_embeddings > 0:
+            doc = await collection.find_one(
+                {"summary_embedding": {"$exists": True}},
+                {"url": 1, "title": 1, "summary": 1, "summary_embedding": 1}
+            )
+            if doc:
+                sample_with_embedding = {
+                    "url": doc.get("url"),
+                    "title": doc.get("title", "")[:100],
+                    "summary_length": len(doc.get("summary", "")),
+                    "embedding_dimensions": len(doc.get("summary_embedding", []))
+                }
+
+        # Get sample needing embedding
+        sample_needing_embedding = None
+        if articles_needing_summary_embeddings > 0:
+            doc = await collection.find_one(
+                {
+                    "summary": {"$exists": True, "$ne": None, "$ne": ""},
+                    "summary_processing_status": "completed",
+                    "summary_embedding": {"$exists": False}
+                },
+                {"url": 1, "title": 1, "summary": 1}
+            )
+            if doc:
+                sample_needing_embedding = {
+                    "url": doc.get("url"),
+                    "title": doc.get("title", "")[:100],
+                    "summary_preview": doc.get("summary", "")[:100]
+                }
+
+        return {
+            "total_articles": total_articles,
+            "articles_with_summaries": articles_with_summaries,
+            "articles_with_summary_embeddings": articles_with_summary_embeddings,
+            "articles_with_content_embeddings": articles_with_content_embeddings,
+            "articles_needing_summary_embeddings": articles_needing_summary_embeddings,
+            "sample_with_embedding": sample_with_embedding,
+            "sample_needing_embedding": sample_needing_embedding
+        }
+
+    except Exception as e:
+        logger.error(f"Error in debug endpoint: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
