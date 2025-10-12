@@ -422,6 +422,52 @@ class ArticleRepository:
             logger.error(f"Error counting articles without summaries: {e}")
             return 0
 
+    async def get_articles_with_summaries_without_embeddings(self, limit: int = 50, skip: int = 0) -> List[Article]:
+        """Get articles that have summaries but don't have summary embeddings yet."""
+        try:
+            query = {
+                "summary": {"$exists": True, "$ne": None, "$ne": ""},
+                "summary_processing_status": "completed",
+                "summary_embedding": {"$exists": False}
+            }
+
+            logger.debug(f"Querying articles with summaries but without embeddings: {query}")
+            # Sort by summary generation date (newest first)
+            cursor = self.collection.find(query).sort([
+                ("summary_generated_at", -1),
+                ("publication_date", -1)
+            ]).skip(skip).limit(limit)
+            docs = await cursor.to_list(length=limit)
+            logger.debug(f"Found {len(docs)} articles with summaries but without embeddings")
+            return [Article(**self._clean_article_data(doc)) for doc in docs]
+        except Exception as e:
+            logger.error(f"Error getting articles with summaries without embeddings: {e}")
+            return []
+
+    async def count_summary_embeddings(self) -> int:
+        """Count articles that have summary embeddings."""
+        try:
+            count = await self.collection.count_documents({"summary_embedding": {"$exists": True}})
+            logger.debug(f"Count query result: {count} articles with summary embeddings")
+            return count
+        except Exception as e:
+            logger.error(f"Error counting articles with summary embeddings: {e}")
+            return 0
+
+    async def count_articles_with_summaries(self) -> int:
+        """Count articles that have completed summaries."""
+        try:
+            query = {
+                "summary": {"$exists": True, "$ne": None, "$ne": ""},
+                "summary_processing_status": "completed"
+            }
+            count = await self.collection.count_documents(query)
+            logger.debug(f"Count query result: {count} articles with completed summaries")
+            return count
+        except Exception as e:
+            logger.error(f"Error counting articles with summaries: {e}")
+            return 0
+
     async def get_todays_articles(self, limit: int = 100) -> List[Dict[str, Any]]:
         """Get recent articles with valid publication_date, ordered by publication_date (newest first).
 

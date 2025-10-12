@@ -204,6 +204,144 @@ async def get_similar_articles_by_url(
         raise HTTPException(status_code=500, detail="Internal server error")
 
 
+@router.get("/similar-by-summary", response_model=SimilarArticlesResponse)
+async def get_similar_articles_by_summary(
+    title: str = Query(..., description="Title of the article to find similar articles for"),
+    limit: int = Query(5, ge=1, le=20, description="Maximum number of similar articles to return"),
+    similarity_threshold: float = Query(0.6, ge=0.0, le=1.0, description="Minimum similarity score"),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Get articles similar to the specified article by title, based on summary embeddings.
+
+    Args:
+        title: Title of the article to find similar articles for
+        limit: Maximum number of similar articles to return
+        similarity_threshold: Minimum similarity score (0-1)
+        db: Database connection
+
+    Returns:
+        List of similar articles with metadata
+    """
+    try:
+        # Find article by title (case-insensitive partial match)
+        collection = db["documents"]
+        article = await collection.find_one({
+            "title": {"$regex": title, "$options": "i"}
+        })
+        if not article:
+            raise HTTPException(status_code=404, detail=f"Article with title containing '{title}' not found")
+
+        article_url = article["url"]
+
+        # Get similar articles by summary
+        similar_articles = await ml_client.get_similar_articles_by_summary_for_display(
+            article_url,
+            limit=limit
+        )
+
+        # Filter by similarity threshold
+        filtered_articles = [
+            article for article in similar_articles
+            if article["similarity_score"] >= similarity_threshold
+        ]
+
+        # Get article IDs for the filtered articles
+        article_ids = {}
+        if filtered_articles:
+            urls = [article["url"] for article in filtered_articles]
+            id_query = await collection.find({"url": {"$in": urls}}, {"url": 1}).to_list(length=len(urls))
+            article_ids = {doc["url"]: str(doc["_id"]) for doc in id_query}
+
+        return SimilarArticlesResponse(
+            article_url=article_url,
+            similar_articles=[
+                SimilarArticleResponse(
+                    id=article_ids.get(article["url"], ""),
+                    url=article["url"],
+                    title=article["title"],
+                    host=article["host"],
+                    publication_date=article["publication_date"] if isinstance(article["publication_date"], str) else (article["publication_date"].isoformat() if article["publication_date"] else None),
+                    similarity_score=article["similarity_score"],
+                    preview=article["preview"]
+                )
+                for article in filtered_articles
+            ],
+            total_found=len(filtered_articles)
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting similar articles by summary for title '{title}': {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
+@router.get("/article/{article_url:path}/similar-by-summary", response_model=List[SimilarArticleResponse])
+async def get_similar_articles_by_url_and_summary(
+    article_url: str,
+    limit: int = Query(5, ge=1, le=20, description="Maximum number of similar articles to return"),
+    similarity_threshold: float = Query(0.6, ge=0.0, le=1.0, description="Minimum similarity score"),
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Get articles similar to the specified article by URL, based on summary embeddings.
+
+    Args:
+        article_url: URL of the article to find similar articles for
+        limit: Maximum number of similar articles to return
+        similarity_threshold: Minimum similarity score (0-1)
+        db: Database connection
+
+    Returns:
+        List of similar articles with metadata
+    """
+    try:
+        # Verify article exists
+        collection = db["documents"]
+        article = await collection.find_one({"url": article_url})
+        if not article:
+            raise HTTPException(status_code=404, detail="Article not found")
+
+        # Get similar articles by summary
+        similar_articles = await ml_client.get_similar_articles_by_summary_for_display(
+            article_url,
+            limit=limit
+        )
+
+        # Filter by similarity threshold
+        filtered_articles = [
+            article for article in similar_articles
+            if article["similarity_score"] >= similarity_threshold
+        ]
+
+        # Get article IDs for the filtered articles
+        article_ids = {}
+        if filtered_articles:
+            urls = [article["url"] for article in filtered_articles]
+            id_query = await collection.find({"url": {"$in": urls}}, {"url": 1}).to_list(length=len(urls))
+            article_ids = {doc["url"]: str(doc["_id"]) for doc in id_query}
+
+        return [
+            SimilarArticleResponse(
+                id=article_ids.get(article["url"], ""),
+                url=article["url"],
+                title=article["title"],
+                host=article["host"],
+                publication_date=article["publication_date"] if isinstance(article["publication_date"], str) else (article["publication_date"].isoformat() if article["publication_date"] else None),
+                similarity_score=article["similarity_score"],
+                preview=article["preview"]
+            )
+            for article in filtered_articles
+        ]
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting similar articles by summary for URL '{article_url}': {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+
 @router.get("/article/{article_url:path}/topics", response_model=List[TopicGroupResponse])
 async def get_article_topics(
     article_url: str,

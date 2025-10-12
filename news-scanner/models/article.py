@@ -66,6 +66,11 @@ class Article(ArticleBase):
     summary_processing_status: Optional[str] = Field(None, description="Status: pending, processing, completed, failed")
     summary_error: Optional[str] = Field(None, description="Error message if summary generation failed")
 
+    # Summary embedding fields
+    summary_embedding: Optional[list] = Field(None, description="Embedding vector generated from article summary")
+    summary_embedding_updated_at: Optional[datetime] = Field(None, description="When the summary embedding was generated")
+    summary_embedding_model: Optional[str] = Field(None, description="Model used for summary embedding generation")
+
     # Metadata
     date: Optional[datetime] = Field(None, description="Analysis date")
 

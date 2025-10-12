@@ -364,6 +364,195 @@ class MLServiceClient:
             logger.error(f"Error getting article topics: {e}")
             return []
 
+    async def generate_summary_embedding(self, summary_text: str, article_url: str = None) -> Optional[List[float]]:
+        """
+        Generate embedding for summary text.
+
+        Args:
+            summary_text: Summary text to generate embedding for
+            article_url: Optional article URL for logging
+
+        Returns:
+            Embedding vector or None if failed
+        """
+        try:
+            session = await self._get_session()
+            payload = {
+                "summary_text": summary_text,
+                "article_url": article_url
+            }
+
+            async with session.post(
+                f"{self.ml_service_url}/embeddings/summary/generate",
+                json=payload
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get("embedding")
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Failed to generate summary embedding: {error_text}")
+                    return None
+
+        except Exception as e:
+            logger.error(f"Error generating summary embedding: {e}")
+            return None
+
+    def generate_summary_embedding_sync(self, summary_text: str, article_url: str = None) -> Optional[List[float]]:
+        """
+        Synchronous version of generate_summary_embedding for use in Celery tasks.
+
+        Args:
+            summary_text: Summary text to generate embedding for
+            article_url: Optional article URL for logging
+
+        Returns:
+            Embedding vector or None if failed
+        """
+        import requests
+        import time
+
+        max_retries = 3
+        retry_delay = 1
+
+        for attempt in range(max_retries):
+            try:
+                # First check if ML service is healthy
+                try:
+                    health_response = requests.get(f"{self.ml_service_url}/health", timeout=5)
+                    if health_response.status_code != 200:
+                        logger.warning(f"ML service health check failed (attempt {attempt + 1}/{max_retries})")
+                        if attempt < max_retries - 1:
+                            time.sleep(retry_delay)
+                            continue
+                        return None
+                except Exception as health_e:
+                    logger.warning(f"ML service health check exception (attempt {attempt + 1}/{max_retries}): {health_e}")
+                    if attempt < max_retries - 1:
+                        time.sleep(retry_delay)
+                        continue
+                    return None
+
+                logger.info(f"Calling ML service for summary embedding, text length: {len(summary_text)}, article_url: {article_url}")
+                payload = {
+                    "summary_text": summary_text,
+                    "article_url": article_url
+                }
+
+                response = requests.post(
+                    f"{self.ml_service_url}/embeddings/summary/generate",
+                    json=payload,
+                    timeout=30
+                )
+
+                logger.info(f"ML service response status: {response.status_code}")
+                if response.status_code == 200:
+                    data = response.json()
+                    embedding = data.get("embedding")
+                    if embedding:
+                        logger.info(f"Successfully generated summary embedding with {len(embedding)} dimensions")
+                        return embedding
+                    else:
+                        logger.error("No embedding in successful response")
+                        return None
+                else:
+                    logger.error(f"Failed to generate summary embedding: HTTP {response.status_code} - {response.text}")
+                    return None
+
+            except Exception as e:
+                logger.error(f"Exception during summary embedding generation (attempt {attempt + 1}/{max_retries}): {e}")
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    continue
+                import traceback
+                logger.error(f"Final exception traceback: {traceback.format_exc()}")
+                return None
+
+        return None
+
+    async def find_similar_articles_by_summary(
+        self,
+        article_url: str,
+        limit: int = 10,
+        similarity_threshold: float = 0.7
+    ) -> List[Dict[str, Any]]:
+        """
+        Find articles similar to the given article based on summary embeddings.
+
+        Args:
+            article_url: URL of the article to find similar articles for
+            limit: Maximum number of similar articles to return
+            similarity_threshold: Minimum similarity threshold
+
+        Returns:
+            List of similar articles
+        """
+        try:
+            session = await self._get_session()
+            payload = {
+                "article_url": article_url,
+                "limit": limit,
+                "similarity_threshold": similarity_threshold
+            }
+
+            async with session.post(
+                f"{self.ml_service_url}/similarity/search-by-summary",
+                json=payload
+            ) as response:
+                if response.status == 200:
+                    data = await response.json()
+                    return data.get("similar_articles", [])
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Failed to find similar articles by summary: {error_text}")
+                    return []
+
+        except Exception as e:
+            logger.error(f"Error finding similar articles by summary: {e}")
+            return []
+
+    async def get_similar_articles_by_summary_for_display(
+        self,
+        article_url: str,
+        limit: int = 5
+    ) -> List[Dict[str, Any]]:
+        """
+        Get similar articles by summary formatted for frontend display.
+
+        Args:
+            article_url: URL of the article to find similar articles for
+            limit: Maximum number of similar articles to return
+
+        Returns:
+            List of similar articles with metadata for display
+        """
+        try:
+            # Find similar articles by summary
+            similar_articles = await self.find_similar_articles_by_summary(
+                article_url,
+                limit=limit,
+                similarity_threshold=0.6
+            )
+
+            # Format for display
+            formatted_articles = []
+            for item in similar_articles:
+                article = item.get("article", {})
+                formatted_articles.append({
+                    "url": article.get("url", ""),
+                    "title": article.get("title", ""),
+                    "host": article.get("Host", ""),
+                    "publication_date": article.get("publication_date"),
+                    "similarity_score": item.get("similarity_score", 0),
+                    "preview": article.get("summary", "")[:200] + "..." if article.get("summary") else ""
+                })
+
+            return formatted_articles
+
+        except Exception as e:
+            logger.error(f"Error getting similar articles by summary for display: {e}")
+            return []
+
 
 # Global ML service client instance
 ml_client = MLServiceClient()

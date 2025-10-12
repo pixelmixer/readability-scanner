@@ -37,7 +37,8 @@ class TopicAnalysisScheduler:
 
             self.logger.info("✅ Topic Analysis Scheduler started")
             self.logger.info("📅 Maintenance schedule:")
-            self.logger.info("  - Embedding generation: Every 2 hours")
+            self.logger.info("  - Embedding generation: Every 2 hours at :00")
+            self.logger.info("  - Summary embedding generation: Every 2 hours at :30")
             self.logger.info("  - Topic grouping: Daily at 2 AM")
             self.logger.info("  - Summary generation: Daily at 3 AM")
 
@@ -68,6 +69,16 @@ class TopicAnalysisScheduler:
             CronTrigger(hour="*/2", minute=0),  # Every 2 hours at the top of the hour
             id='topic_embedding_generation',
             name='Generate Missing Embeddings',
+            replace_existing=True,
+            max_instances=1
+        )
+
+        # 1b. Summary embedding generation - every 2 hours at :30
+        self.scheduler.add_job(
+            self._run_summary_embedding_generation,
+            CronTrigger(hour="*/2", minute=30),  # Every 2 hours at 30 minutes past
+            id='summary_embedding_generation',
+            name='Generate Missing Summary Embeddings',
             replace_existing=True,
             max_instances=1
         )
@@ -121,6 +132,26 @@ class TopicAnalysisScheduler:
 
         except Exception as e:
             self.logger.error(f"Failed to queue embedding generation: {e}")
+
+    async def _run_summary_embedding_generation(self):
+        """Run summary embedding generation for articles with summaries but no summary embeddings."""
+        try:
+            self.logger.info("🧠 Starting scheduled summary embedding generation...")
+
+            # Import task locally to avoid circular imports
+            from celery_app.tasks import batch_generate_summary_embeddings_task
+
+            # Queue the task with proper priority
+            result = batch_generate_summary_embeddings_task.apply_async(
+                args=[50],
+                queue='normal',
+                priority=3  # Same as content embeddings
+            )
+
+            self.logger.info(f"✓ Summary embedding generation task queued: {result.id}")
+
+        except Exception as e:
+            self.logger.error(f"Failed to queue summary embedding generation: {e}")
 
     async def _run_topic_grouping(self):
         """Run topic grouping for all articles with embeddings."""

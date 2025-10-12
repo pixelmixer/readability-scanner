@@ -331,6 +331,118 @@ class VectorSimilarityService:
             logger.error(f"Failed to batch generate embeddings: {e}")
             return {"total_articles": 0, "processed": 0, "failed": 0}
 
+    async def generate_summary_embedding(self, summary_text: str) -> Optional[List[float]]:
+        """
+        Generate embedding for a summary text.
+
+        Args:
+            summary_text: Summary text to generate embedding for
+
+        Returns:
+            Embedding vector or None if failed
+        """
+        try:
+            if not self.model:
+                await self.initialize()
+
+            if not summary_text or not summary_text.strip():
+                logger.warning("No summary text provided for embedding generation")
+                return None
+
+            # Generate embedding from summary text
+            embedding = self.model.encode(summary_text.strip(), convert_to_tensor=False)
+            return embedding.tolist()
+
+        except Exception as e:
+            logger.error(f"Failed to generate summary embedding: {e}")
+            return None
+
+    async def find_similar_articles_by_summary(
+        self,
+        article_url: str,
+        limit: int = 10,
+        similarity_threshold: float = 0.7
+    ) -> List[Dict[str, Any]]:
+        """
+        Find articles similar to the given article based on summary embeddings.
+
+        Args:
+            article_url: URL of the article to find similar articles for
+            limit: Maximum number of similar articles to return
+            similarity_threshold: Minimum similarity score (0-1)
+
+        Returns:
+            List of similar articles with similarity scores
+        """
+        try:
+            # Get the article by URL
+            db = db_manager.get_database()
+            collection = db[self.collection_name]
+
+            article = await collection.find_one({"url": article_url})
+            if not article:
+                logger.warning(f"Article not found: {article_url}")
+                return []
+
+            # Get the article's summary embedding
+            query_embedding = article.get("summary_embedding")
+            if not query_embedding:
+                logger.warning(f"Article does not have a summary embedding: {article_url}")
+                return []
+
+            # Find articles that have summary embeddings
+            cursor = collection.find(
+                {"summary_embedding": {"$exists": True}},
+                {
+                    "url": 1,
+                    "title": 1,
+                    "summary": 1,
+                    "publication_date": 1,
+                    "Host": 1,
+                    "summary_embedding": 1,
+                    "_id": 1
+                }
+            )
+
+            articles_with_embeddings = await cursor.to_list(length=None)
+
+            if not articles_with_embeddings:
+                logger.warning("No articles with summary embeddings found")
+                return []
+
+            # Calculate similarities
+            similarities = []
+            query_embedding_array = np.array(query_embedding).reshape(1, -1)
+
+            for doc in articles_with_embeddings:
+                # Skip self
+                if doc.get('url') == article_url:
+                    continue
+
+                doc_embedding = doc.get('summary_embedding')
+                if not doc_embedding:
+                    continue
+
+                # Calculate cosine similarity
+                doc_embedding_array = np.array(doc_embedding).reshape(1, -1)
+                similarity = cosine_similarity(query_embedding_array, doc_embedding_array)[0][0]
+
+                if similarity >= similarity_threshold:
+                    similarities.append({
+                        'article': doc,
+                        'similarity_score': float(similarity)
+                    })
+
+            # Sort by similarity score (descending)
+            similarities.sort(key=lambda x: x['similarity_score'], reverse=True)
+
+            # Return top results
+            return similarities[:limit]
+
+        except Exception as e:
+            logger.error(f"Failed to find similar articles by summary for URL {article_url}: {e}")
+            return []
+
     async def create_vector_index(self) -> bool:
         """
         Create a vector search index in MongoDB.

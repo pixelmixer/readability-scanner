@@ -11,7 +11,8 @@ from celery_app.tasks import (
     batch_generate_embeddings,
     group_articles_by_topics,
     generate_shared_summaries,
-    full_topic_analysis_pipeline
+    full_topic_analysis_pipeline,
+    batch_generate_summary_embeddings_task
 )
 from database.connection import get_database
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -74,6 +75,51 @@ async def trigger_embedding_generation(
 
     except Exception as e:
         logger.error(f"Error triggering embedding generation: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/generate-summary-embeddings", response_model=TaskResponse)
+async def trigger_summary_embedding_generation(
+    batch_size: int = 50,
+    db: AsyncIOMotorDatabase = Depends(get_database)
+):
+    """
+    Trigger summary embedding generation for articles that have summaries but no summary embeddings.
+
+    Args:
+        batch_size: Number of articles to process in each batch
+        db: Database connection
+
+    Returns:
+        Task information
+    """
+    try:
+        # Check current status
+        collection = db["documents"]
+        articles_with_summaries = await collection.count_documents({
+            "summary": {"$exists": True, "$ne": None, "$ne": ""},
+            "summary_processing_status": "completed"
+        })
+        articles_with_summary_embeddings = await collection.count_documents({"summary_embedding": {"$exists": True}})
+
+        if articles_with_summary_embeddings >= articles_with_summaries:
+            return TaskResponse(
+                success=True,
+                task_id="none",
+                message=f"All {articles_with_summaries} articles with summaries already have summary embeddings"
+            )
+
+        # Queue the task
+        result = batch_generate_summary_embeddings_task.delay(batch_size)
+
+        return TaskResponse(
+            success=True,
+            task_id=result.id,
+            message=f"Summary embedding generation queued for {articles_with_summaries - articles_with_summary_embeddings} articles"
+        )
+
+    except Exception as e:
+        logger.error(f"Error triggering summary embedding generation: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -9,6 +9,7 @@ Each job type is organized in its own module for better maintainability.
 from .jobs import base_task
 from .jobs import rss_jobs
 from .jobs import summary_jobs
+from .jobs import summary_embedding_jobs
 from .jobs import backfill_jobs
 from .jobs import reddit_jobs
 from .jobs import topic_analysis_jobs_ml
@@ -26,6 +27,10 @@ from .jobs.summary_jobs import (
     generate_article_summary_task,
     process_summary_backlog_task,
     manual_summary_trigger_task
+)
+from .jobs.summary_embedding_jobs import (
+    generate_summary_embedding_task,
+    batch_generate_summary_embeddings_task
 )
 from .jobs.backfill_jobs import (
     backfill_publication_dates_task,
@@ -93,6 +98,8 @@ def full_topic_analysis_pipeline(self):
 # - celery_app.tasks.generate_article_summary_task
 # - celery_app.tasks.process_summary_backlog_task
 # - celery_app.tasks.manual_summary_trigger_task
+# - celery_app.tasks.generate_summary_embedding_task
+# - celery_app.tasks.batch_generate_summary_embeddings_task
 # - celery_app.tasks.backfill_publication_dates_task
 # - celery_app.tasks.cleanup_old_date_fields_task
 # - celery_app.tasks.reddit_backfill_task

@@ -215,6 +215,64 @@ async def find_similar_articles(request: SimilarityRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Summary embedding endpoints
+class SummaryEmbeddingRequest(BaseModel):
+    summary_text: str
+    article_url: Optional[str] = None
+
+
+class SummarySimilarityRequest(BaseModel):
+    article_url: str
+    limit: int = 10
+    similarity_threshold: float = 0.7
+
+
+@app.post("/embeddings/summary/generate", response_model=EmbeddingResponse)
+async def generate_summary_embedding(request: SummaryEmbeddingRequest):
+    """Generate embedding for summary text."""
+    try:
+        if not vector_service:
+            raise HTTPException(status_code=503, detail="Vector service not initialized")
+
+        embedding = await vector_service.generate_summary_embedding(request.summary_text)
+
+        if embedding is None:
+            raise HTTPException(status_code=500, detail="Failed to generate summary embedding")
+
+        return EmbeddingResponse(
+            embedding=embedding,
+            model_name=vector_service.model_name,
+            success=True
+        )
+
+    except Exception as e:
+        logger.error(f"Error generating summary embedding: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/similarity/search-by-summary", response_model=SimilarityResponse)
+async def find_similar_articles_by_summary(request: SummarySimilarityRequest):
+    """Find articles similar to the given article based on summary embeddings."""
+    try:
+        if not vector_service:
+            raise HTTPException(status_code=503, detail="Vector service not initialized")
+
+        similar_articles = await vector_service.find_similar_articles_by_summary(
+            article_url=request.article_url,
+            limit=request.limit,
+            similarity_threshold=request.similarity_threshold
+        )
+
+        return SimilarityResponse(
+            similar_articles=similar_articles,
+            success=True
+        )
+
+    except Exception as e:
+        logger.error(f"Error finding similar articles by summary: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # Topic analysis endpoints
 @app.post("/topics/analyze", response_model=TopicAnalysisResponse)
 async def analyze_topics(request: TopicAnalysisRequest):

@@ -101,6 +101,19 @@ def generate_article_summary_task(self, article_url: str) -> Dict[str, Any]:
 
                 if update_success:
                     logger.info(f"✅ Summary generated successfully for: {article_url}")
+
+                    # Queue summary embedding generation task
+                    try:
+                        from .summary_embedding_jobs import generate_summary_embedding_task
+                        embedding_task_result = generate_summary_embedding_task.apply_async(
+                            args=[article_url],
+                            queue='normal',
+                            priority=4  # Same priority as summary generation
+                        )
+                        logger.info(f"🧠 Queued summary embedding generation for: {article_url} (task: {embedding_task_result.id})")
+                    except Exception as e:
+                        logger.warning(f"Failed to queue summary embedding generation for {article_url}: {e}")
+
                     return {
                         'success': True,
                         'article_url': article_url,

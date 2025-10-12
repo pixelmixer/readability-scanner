@@ -53,7 +53,7 @@
                     <i class="fas fa-search me-2"></i>
                     Find Similar Articles
                 </h2>
-                <div class="d-flex gap-3">
+                <div class="d-flex gap-3 mb-3">
                     <div class="flex-grow-1">
                         <input
                             type="text"
@@ -69,6 +69,23 @@
                         <i class="fas fa-search me-2"></i>
                         Find Similar
                     </button>
+                </div>
+
+                <!-- Similarity Mode Toggle -->
+                <div class="d-flex justify-content-center">
+                    <div class="btn-group" role="group" aria-label="Similarity mode">
+                        <input type="radio" class="btn-check" name="similarityMode" id="contentMode" autocomplete="off" checked>
+                        <label class="btn btn-outline-primary" for="contentMode">
+                            <i class="fas fa-file-alt me-1"></i>
+                            Content Similarity
+                        </label>
+
+                        <input type="radio" class="btn-check" name="similarityMode" id="summaryMode" autocomplete="off">
+                        <label class="btn btn-outline-primary" for="summaryMode">
+                            <i class="fas fa-align-left me-1"></i>
+                            Summary Similarity
+                        </label>
+                    </div>
                 </div>
             </div>
         </div>
@@ -177,8 +194,14 @@
                 this.hideResults();
 
                 try {
+                    // Determine similarity mode (content or summary)
+                    const isSummaryMode = document.getElementById('summaryMode').checked;
+                    const apiEndpoint = isSummaryMode
+                        ? `/api/topics/similar-by-summary?title=${encodeURIComponent(articleTitle)}&limit=10&similarity_threshold=0.6`
+                        : `/api/topics/similar?title=${encodeURIComponent(articleTitle)}&limit=10&similarity_threshold=0.6`;
+
                     // Search for similar articles by title
-                    const similarResponse = await fetch(`/api/topics/similar?title=${encodeURIComponent(articleTitle)}&limit=10&similarity_threshold=0.6`);
+                    const similarResponse = await fetch(apiEndpoint);
 
                     if (!similarResponse.ok) {
                         const errorData = await similarResponse.json();
@@ -187,9 +210,12 @@
 
                     const similarData = await similarResponse.json();
 
-                    // Get topic groups for the found article
-                    const topicsResponse = await fetch(`/api/topics/article/${encodeURIComponent(similarData.article_url)}/topics`);
-                    const topicsData = topicsResponse.ok ? await topicsResponse.json() : [];
+                    // Get topic groups for the found article (only for content mode)
+                    let topicsData = [];
+                    if (!isSummaryMode) {
+                        const topicsResponse = await fetch(`/api/topics/article/${encodeURIComponent(similarData.article_url)}/topics`);
+                        topicsData = topicsResponse.ok ? await topicsResponse.json() : [];
+                    }
 
                     this.displayResults(similarData, topicsData);
 
