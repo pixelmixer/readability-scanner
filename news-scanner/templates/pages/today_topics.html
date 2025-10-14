@@ -1,0 +1,448 @@
+{% extends "layouts/base.html" %}
+
+{% block title %}Today's Topics{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="mb-4">
+        <div class="d-flex justify-content-between align-items-center flex-wrap">
+            <div>
+                <h1 class="h2 mb-0">Today's Topics</h1>
+                <p class="text-muted mb-0" id="current-date">Loading...</p>
+                <small class="text-muted" id="last-updated"></small>
+            </div>
+            <div>
+                <button id="refresh-topics-btn" class="btn btn-outline-secondary">
+                    <i class="fas fa-sync"></i> Regenerate Topics
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="text-center py-5">
+        <div class="spinner-border" role="status">
+            <span class="visually-hidden">Loading...</span>
+        </div>
+        <p class="mt-3">Loading today's topics...</p>
+    </div>
+
+    <!-- Error State -->
+    <div id="error-state" class="alert alert-danger" style="display: none;">
+        <i class="fas fa-exclamation-triangle"></i>
+        <span id="error-message">Failed to load topics.</span>
+    </div>
+
+    <!-- Topics Grid -->
+    <div id="topics-content" style="display: none;">
+        <div class="row" id="topics-grid">
+            <!-- Topics will be populated here -->
+        </div>
+    </div>
+
+    <!-- No Topics State -->
+    <div id="no-topics-state" class="text-center py-5" style="display: none;">
+        <i class="fas fa-layer-group fa-3x text-muted mb-3"></i>
+        <h4 class="text-muted">No topic groups found</h4>
+        <p class="text-muted">Topics are generated hourly from articles with summaries. Check back soon!</p>
+        <button id="trigger-generation-btn" class="btn btn-primary">
+            <i class="fas fa-play"></i> Generate Topics Now
+        </button>
+    </div>
+</div>
+
+<!-- Topic Regeneration Modal -->
+<div class="modal fade" id="regenerateModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Regenerating Topics</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center py-3">
+                    <div class="spinner-border" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-3">Regenerating topic groups... This may take a few minutes.</p>
+                    <p class="text-muted small">You can close this dialog and check back later.</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_styles %}
+<style>
+/* Topic Cards */
+.topic-card {
+    margin-bottom: 2rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    transition: box-shadow 0.2s ease;
+}
+
+.topic-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.1);
+}
+
+.topic-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 1.5rem;
+}
+
+.topic-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.topic-meta {
+    font-size: 0.875rem;
+    opacity: 0.9;
+}
+
+.topic-summary {
+    padding: 1.5rem;
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.topic-summary-text {
+    font-size: 1rem;
+    line-height: 1.6;
+    margin-bottom: 0;
+}
+
+.articles-list {
+    padding: 0;
+    margin: 0;
+    list-style: none;
+}
+
+.article-item {
+    padding: 1rem 1.5rem;
+    border-bottom: 1px solid #dee2e6;
+    transition: background-color 0.2s ease;
+}
+
+.article-item:last-child {
+    border-bottom: none;
+}
+
+.article-item:hover {
+    background-color: #f8f9fa;
+}
+
+.article-title {
+    font-size: 1rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    color: #2c3e50;
+    text-decoration: none;
+}
+
+.article-title:hover {
+    color: #667eea;
+    text-decoration: underline;
+}
+
+.article-summary {
+    font-size: 0.875rem;
+    color: #6c757d;
+    margin-bottom: 0.5rem;
+    line-height: 1.5;
+}
+
+.article-meta {
+    font-size: 0.75rem;
+    color: #95a5a6;
+}
+
+.article-meta i {
+    margin-right: 0.25rem;
+}
+
+.expand-toggle {
+    cursor: pointer;
+    padding: 0.75rem 1.5rem;
+    background-color: #f8f9fa;
+    border-top: 1px solid #dee2e6;
+    text-align: center;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #667eea;
+    transition: background-color 0.2s ease;
+}
+
+.expand-toggle:hover {
+    background-color: #e9ecef;
+}
+
+.expand-toggle i {
+    margin-left: 0.5rem;
+    transition: transform 0.3s ease;
+}
+
+.expand-toggle.expanded i {
+    transform: rotate(180deg);
+}
+
+.articles-container {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.articles-container.expanded {
+    max-height: 5000px;
+}
+
+.badge-article-count {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: white;
+    padding: 0.25rem 0.75rem;
+    border-radius: 1rem;
+    font-size: 0.875rem;
+}
+
+.topic-empty-summary {
+    font-style: italic;
+    color: #95a5a6;
+}
+
+/* Loading animations */
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.loading-pulse {
+    animation: pulse 1.5s ease-in-out infinite;
+}
+</style>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+$(document).ready(function() {
+    loadTopics();
+    updateDate();
+
+    // Refresh button handler
+    $('#refresh-topics-btn, #trigger-generation-btn').click(function() {
+        regenerateTopics();
+    });
+});
+
+function updateDate() {
+    const now = new Date();
+    const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+    $('#current-date').text(now.toLocaleDateString('en-US', options));
+}
+
+function loadTopics() {
+    console.log('Loading today\'s topics...');
+    $('#loading-state').show();
+    $('#error-state').hide();
+    $('#topics-content').hide();
+    $('#no-topics-state').hide();
+
+    $.get('/api/daily-topics/today')
+        .done(function(data) {
+            console.log('Topics loaded:', data);
+
+            if (data.success) {
+                if (data.count === 0) {
+                    $('#no-topics-state').show();
+                } else {
+                    renderTopics(data.topic_groups);
+
+                    // Show last updated time
+                    if (data.generated_at) {
+                        const updatedTime = new Date(data.generated_at);
+                        $('#last-updated').text(`Last updated: ${updatedTime.toLocaleTimeString()}`);
+                    }
+
+                    $('#topics-content').show();
+                }
+            } else {
+                showError('Failed to load topics');
+            }
+        })
+        .fail(function(xhr) {
+            console.error('Error loading topics:', xhr);
+            showError('Error loading topics. Please try again.');
+        })
+        .always(function() {
+            $('#loading-state').hide();
+        });
+}
+
+function renderTopics(topics) {
+    const grid = $('#topics-grid');
+    grid.empty();
+
+    topics.forEach(function(topic, index) {
+        const topicCard = createTopicCard(topic, index);
+        grid.append(topicCard);
+    });
+}
+
+function createTopicCard(topic, index) {
+    const hasSummary = topic.combined_summary && topic.combined_summary_status === 'completed';
+    const cardId = `topic-${topic.topic_id}`;
+
+    const articlesList = topic.articles.map(function(article) {
+        return `
+            <li class="article-item">
+                <a href="/article?id=${article._id || ''}" class="article-title d-block" target="_blank">
+                    ${escapeHtml(article.title || 'Untitled')}
+                </a>
+                <div class="article-summary">
+                    ${escapeHtml(article.summary || 'No summary available')}
+                </div>
+                <div class="article-meta">
+                    <i class="fas fa-calendar"></i> ${formatDate(article.publication_date)}
+                    <span class="mx-2">|</span>
+                    <i class="fas fa-rss"></i> ${escapeHtml(article.origin || article.host || 'Unknown')}
+                    ${article.author ? `<span class="mx-2">|</span><i class="fas fa-user"></i> ${escapeHtml(article.author)}` : ''}
+                </div>
+            </li>
+        `;
+    }).join('');
+
+    const card = $(`
+        <div class="col-12">
+            <div class="topic-card">
+                <div class="topic-header">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div class="topic-title">Topic ${index + 1}</div>
+                        <span class="badge-article-count">
+                            ${topic.article_count} article${topic.article_count !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+                    <div class="topic-meta">
+                        Generated: ${formatDate(topic.date_generated)}
+                    </div>
+                </div>
+
+                ${hasSummary ? `
+                    <div class="topic-summary">
+                        <p class="topic-summary-text">
+                            <strong>Overview:</strong> ${escapeHtml(topic.combined_summary)}
+                        </p>
+                    </div>
+                ` : `
+                    <div class="topic-summary">
+                        <p class="topic-summary-text topic-empty-summary">
+                            Combined summary not available
+                        </p>
+                    </div>
+                `}
+
+                <div class="expand-toggle" data-target="${cardId}">
+                    <span>View Articles</span>
+                    <i class="fas fa-chevron-down"></i>
+                </div>
+
+                <div class="articles-container" id="${cardId}">
+                    <ul class="articles-list">
+                        ${articlesList}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    `);
+
+    // Add click handler for expand/collapse
+    card.find('.expand-toggle').click(function() {
+        const target = $(this).data('target');
+        const container = $(`#${target}`);
+        const toggle = $(this);
+
+        container.toggleClass('expanded');
+        toggle.toggleClass('expanded');
+
+        if (container.hasClass('expanded')) {
+            toggle.find('span').text('Hide Articles');
+        } else {
+            toggle.find('span').text('View Articles');
+        }
+    });
+
+    return card;
+}
+
+function regenerateTopics() {
+    console.log('Triggering topic regeneration...');
+
+    // Show modal
+    const modal = new bootstrap.Modal(document.getElementById('regenerateModal'));
+    modal.show();
+
+    $.post('/api/daily-topics/regenerate')
+        .done(function(data) {
+            if (data.success) {
+                console.log('Regeneration queued:', data.task_id);
+
+                // Wait a few seconds then reload
+                setTimeout(function() {
+                    modal.hide();
+                    loadTopics();
+                }, 5000);
+            } else {
+                modal.hide();
+                showError('Failed to trigger regeneration');
+            }
+        })
+        .fail(function(xhr) {
+            console.error('Error triggering regeneration:', xhr);
+            modal.hide();
+            showError('Error triggering regeneration. Please try again.');
+        });
+}
+
+function showError(message) {
+    $('#error-message').text(message);
+    $('#error-state').show();
+}
+
+function formatDate(dateString) {
+    if (!dateString) return 'Unknown date';
+
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (e) {
+        return dateString;
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}
+

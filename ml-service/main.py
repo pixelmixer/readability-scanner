@@ -357,6 +357,157 @@ class ArticleTopicsResponse(BaseModel):
     success: bool
 
 
+class DailyTopicsRequest(BaseModel):
+    days_back: int = 7
+    similarity_threshold: float = 0.80  # High threshold for quality topics
+    min_group_size: int = 5  # At least 5 articles per topic
+    max_articles: int = 500  # Limit articles for performance
+
+
+class DailyTopicsResponse(BaseModel):
+    success: bool
+    topic_groups: List[Dict[str, Any]]
+    articles_processed: int
+    articles_grouped: int
+
+
+@app.post("/topics/generate-daily-topics", response_model=DailyTopicsResponse)
+async def generate_daily_topics(request: DailyTopicsRequest):
+    """
+    Generate topic groups from recent articles with date filtering.
+
+    This endpoint handles all similarity calculations and grouping logic.
+    """
+    try:
+        from datetime import datetime, timedelta
+        from database.connection import db_manager
+        import numpy as np
+        from sklearn.metrics.pairwise import cosine_similarity
+
+        logger.info(f"Generating daily topics for last {request.days_back} days")
+
+        db = db_manager.get_database()
+        collection = db["documents"]
+
+        # Query for articles from last N days with summaries and embeddings
+        cutoff_date = datetime.now() - timedelta(days=request.days_back)
+
+        query = {
+            "publication_date": {
+                "$gte": cutoff_date,
+                "$type": "date"
+            },
+            "summary": {"$exists": True, "$ne": None, "$ne": ""},
+            "summary_processing_status": "completed",
+            "embedding": {"$exists": True}
+        }
+
+        cursor = collection.find(query, {
+            "url": 1,
+            "title": 1,
+            "summary": 1,
+            "publication_date": 1,
+            "origin": 1,
+            "Host": 1,
+            "embedding": 1,
+            "image_url": 1,
+            "author": 1,
+            "_id": 1
+        }).sort("publication_date", -1)  # Most recent first
+
+        articles = await cursor.to_list(length=request.max_articles)
+        logger.info(f"Found {len(articles)} articles for grouping (limited to {request.max_articles})")
+
+        if len(articles) < 2:
+            return DailyTopicsResponse(
+                success=True,
+                topic_groups=[],
+                articles_processed=len(articles),
+                articles_grouped=0
+            )
+
+        # Group articles by similarity
+        topic_groups = []
+        processed_urls = set()
+
+        for idx, seed_article in enumerate(articles):
+            if seed_article['url'] in processed_urls:
+                continue
+
+            # Log progress
+            if idx % 100 == 0:
+                logger.info(f"Processed {idx}/{len(articles)} articles, found {len(topic_groups)} groups")
+
+            seed_embedding = seed_article.get('embedding')
+            if not seed_embedding:
+                continue
+
+            # Find similar articles
+            similar_articles = [seed_article]
+            seed_embedding_array = np.array(seed_embedding).reshape(1, -1)
+
+            for article in articles:
+                if article['url'] == seed_article['url']:
+                    continue
+                if article['url'] in processed_urls:
+                    continue
+
+                article_embedding = article.get('embedding')
+                if not article_embedding:
+                    continue
+
+                # Check dimension match
+                if len(article_embedding) != len(seed_embedding):
+                    continue
+
+                # Calculate cosine similarity
+                article_embedding_array = np.array(article_embedding).reshape(1, -1)
+                similarity = cosine_similarity(seed_embedding_array, article_embedding_array)[0][0]
+
+                if similarity >= request.similarity_threshold:
+                    similar_articles.append(article)
+
+            # Create group if minimum size met
+            if len(similar_articles) >= request.min_group_size:
+                topic_group = {
+                    "articles": [
+                        {
+                            "url": art.get('url'),
+                            "title": art.get('title', 'Untitled'),
+                            "summary": art.get('summary', ''),
+                            "publication_date": art.get('publication_date').isoformat() if art.get('publication_date') else None,
+                            "origin": art.get('origin', ''),
+                            "host": art.get('Host', ''),
+                            "image_url": art.get('image_url'),
+                            "author": art.get('author')
+                        }
+                        for art in similar_articles
+                    ],
+                    "article_count": len(similar_articles)
+                }
+
+                topic_groups.append(topic_group)
+
+                # Mark as processed
+                for art in similar_articles:
+                    processed_urls.add(art['url'])
+
+                logger.info(f"Created topic group with {len(similar_articles)} articles")
+
+        logger.info(f"Daily topics generation complete: {len(topic_groups)} groups, {len(processed_urls)} articles grouped")
+
+        return DailyTopicsResponse(
+            success=True,
+            topic_groups=topic_groups,
+            articles_processed=len(articles),
+            articles_grouped=len(processed_urls)
+        )
+
+    except Exception as e:
+        logger.error(f"Error generating daily topics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/topics/article-topics", response_model=ArticleTopicsResponse)
 async def get_article_topics(request: ArticleTopicsRequest):
     """Get topic groups that contain the specified article."""

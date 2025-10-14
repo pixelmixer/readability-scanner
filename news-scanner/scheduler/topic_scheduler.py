@@ -103,16 +103,6 @@ class TopicAnalysisScheduler:
             max_instances=1
         )
 
-        # 4. Cleanup old topic groups - weekly on Sunday at 4 AM
-        self.scheduler.add_job(
-            self._run_topic_cleanup,
-            CronTrigger(day_of_week=6, hour=4, minute=0),  # Sunday at 4 AM
-            id='topic_cleanup',
-            name='Cleanup Old Topic Groups',
-            replace_existing=True,
-            max_instances=1
-        )
-
     async def _run_embedding_generation(self):
         """Run embedding generation for articles that don't have them."""
         try:
@@ -192,30 +182,6 @@ class TopicAnalysisScheduler:
 
         except Exception as e:
             self.logger.error(f"Failed to queue summary generation: {e}")
-
-    async def _run_topic_cleanup(self):
-        """Cleanup old topic groups to prevent database bloat."""
-        try:
-            self.logger.info("🧹 Starting scheduled topic cleanup...")
-
-            # Import here to avoid circular imports
-            from database.connection import db_manager
-
-            db = db_manager.get_database()
-            topics_collection = db["article_topics"]
-
-            # Delete topic groups older than 30 days
-            cutoff_date = datetime.utcnow() - timedelta(days=30)
-
-            result = await topics_collection.delete_many({
-                "created_at": {"$lt": cutoff_date}
-            })
-
-            deleted_count = result.deleted_count
-            self.logger.info(f"✓ Cleaned up {deleted_count} old topic groups")
-
-        except Exception as e:
-            self.logger.error(f"Failed to cleanup topic groups: {e}")
 
     def get_status(self) -> dict:
         """Get scheduler status information."""

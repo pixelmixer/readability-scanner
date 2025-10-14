@@ -211,6 +211,110 @@ Article:"""
             logger.error(f"Connection test failed: {e}")
             return False
 
+    async def generate_combined_summary(self, summaries: list[str], topic_context: str = None) -> Dict[str, Any]:
+        """
+        Generate a combined summary from multiple article summaries.
+
+        Args:
+            summaries: List of individual article summaries
+            topic_context: Optional context about the topic grouping
+
+        Returns:
+            Dict containing combined summary result and metadata
+        """
+        try:
+            if not summaries:
+                return {
+                    "success": False,
+                    "error": "No summaries provided",
+                    "summary": None
+                }
+
+            # Prepare combined content
+            combined_prompt = """You are an expert news analyst. The following are summaries of multiple related articles on the same topic. Create a comprehensive 3-4 sentence overview that captures the main narrative, key developments, and important points across all these articles. Synthesize the information without simply repeating individual summaries.
+
+Related Article Summaries:
+"""
+
+            for i, summary in enumerate(summaries, 1):
+                combined_prompt += f"\n{i}. {summary}"
+
+            if topic_context:
+                combined_prompt += f"\n\nTopic Context: {topic_context}"
+
+            logger.info(f"Generating combined summary from {len(summaries)} article summaries")
+
+            # Make request to LLM
+            llm_response = await self._make_llm_request(combined_prompt)
+
+            if llm_response is None:
+                return {
+                    "success": False,
+                    "error": "LLM API unavailable after multiple retries",
+                    "summary": None,
+                    "model": self.model,
+                    "prompt_version": self.prompt_version,
+                    "generated_at": datetime.utcnow()
+                }
+
+            # Extract summary from response
+            try:
+                choices = llm_response.get("choices", [])
+                if choices and len(choices) > 0:
+                    summary = choices[0].get("message", {}).get("content", "").strip()
+
+                    if summary:
+                        return {
+                            "success": True,
+                            "summary": summary,
+                            "model": self.model,
+                            "prompt_version": self.prompt_version,
+                            "generated_at": datetime.utcnow(),
+                            "source_summaries_count": len(summaries),
+                            "llm_usage": llm_response.get("usage", {}),
+                            "llm_response_id": llm_response.get("id")
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": "Empty summary returned from LLM",
+                            "summary": None,
+                            "model": self.model,
+                            "prompt_version": self.prompt_version,
+                            "generated_at": datetime.utcnow()
+                        }
+                else:
+                    return {
+                        "success": False,
+                        "error": "No choices in LLM response",
+                        "summary": None,
+                        "model": self.model,
+                        "prompt_version": self.prompt_version,
+                        "generated_at": datetime.utcnow()
+                    }
+
+            except Exception as e:
+                logger.error(f"Error parsing LLM response: {e}")
+                return {
+                    "success": False,
+                    "error": f"Error parsing LLM response: {str(e)}",
+                    "summary": None,
+                    "model": self.model,
+                    "prompt_version": self.prompt_version,
+                    "generated_at": datetime.utcnow()
+                }
+
+        except Exception as e:
+            logger.error(f"Error in generate_combined_summary: {e}")
+            return {
+                "success": False,
+                "error": f"Unexpected error: {str(e)}",
+                "summary": None,
+                "model": self.model,
+                "prompt_version": self.prompt_version,
+                "generated_at": datetime.utcnow()
+            }
+
 
 # Global service instance
 summary_service = SummaryService()

@@ -26,11 +26,27 @@ class MLServiceClient:
         """
         self.ml_service_url = ml_service_url or settings.ml_service_url
         self.session = None
+        self._loop = None
 
     async def _get_session(self) -> aiohttp.ClientSession:
-        """Get or create aiohttp session."""
+        """Get or create aiohttp session, handling event loop changes."""
+        import asyncio
+        current_loop = asyncio.get_event_loop()
+
+        # If session exists but is from a different loop, close it
+        if self.session is not None and self._loop is not current_loop:
+            try:
+                if not self.session.closed:
+                    await self.session.close()
+            except:
+                pass
+            self.session = None
+
+        # Create new session if needed
         if self.session is None or self.session.closed:
             self.session = aiohttp.ClientSession()
+            self._loop = current_loop
+
         return self.session
 
     async def close(self):
@@ -469,6 +485,50 @@ class MLServiceClient:
                 return None
 
         return None
+
+    async def generate_daily_topics(
+        self,
+        days_back: int = 7,
+        similarity_threshold: float = 0.80,
+        min_group_size: int = 5,
+        max_articles: int = 500
+    ) -> Dict[str, Any]:
+        """
+        Generate daily topic groups using ML service.
+
+        Args:
+            days_back: Number of days back to fetch articles
+            similarity_threshold: Minimum similarity for grouping
+            min_group_size: Minimum articles per group
+            max_articles: Maximum articles to process (for performance)
+
+        Returns:
+            Topic grouping results
+        """
+        try:
+            session = await self._get_session()
+            payload = {
+                "days_back": days_back,
+                "similarity_threshold": similarity_threshold,
+                "min_group_size": min_group_size,
+                "max_articles": max_articles
+            }
+
+            async with session.post(
+                f"{self.ml_service_url}/topics/generate-daily-topics",
+                json=payload,
+                timeout=aiohttp.ClientTimeout(total=300)  # 5 minutes for large datasets
+            ) as response:
+                if response.status == 200:
+                    return await response.json()
+                else:
+                    error_text = await response.text()
+                    logger.error(f"Failed to generate daily topics: {error_text}")
+                    return {"success": False, "error": error_text}
+
+        except Exception as e:
+            logger.error(f"Error generating daily topics: {e}")
+            return {"success": False, "error": str(e)}
 
     async def find_similar_articles_by_summary(
         self,

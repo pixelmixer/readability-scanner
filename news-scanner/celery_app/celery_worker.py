@@ -78,6 +78,9 @@ celery_app.conf.update(
         'celery_app.tasks.generate_shared_summaries': {'queue': 'low'},
         'celery_app.tasks.process_new_article': {'queue': 'normal'},
         'celery_app.tasks.full_topic_analysis_pipeline': {'queue': 'low'},
+        # Daily topics tasks
+        'celery_app.tasks.generate_daily_topics_task': {'queue': 'low'},
+        'celery_app.tasks.regenerate_daily_topics_task': {'queue': 'high'},
     },
 
     # Task priority settings
@@ -118,6 +121,13 @@ celery_app.conf.update(
             'task': 'celery_app.tasks.full_topic_analysis_pipeline',
             'schedule': crontab(minute=0, hour=2, day_of_week=0),  # Sunday 2 AM
             'options': {'queue': 'low', 'priority': 1}
+        },
+
+        # Daily topics generation - hourly
+        'hourly-daily-topics-update': {
+            'task': 'celery_app.tasks.generate_daily_topics_task',
+            'schedule': crontab(minute=0, hour='*'),  # Every hour on the hour
+            'options': {'queue': 'low', 'priority': 2}
         },
     },
 

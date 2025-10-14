@@ -171,7 +171,7 @@ def register_routes(app: FastAPI):
     """Register all application routes."""
 
     # Import route modules
-    from .routes import sources, daily, graph, export, scan, summaries, topic_routes, topic_management_routes, article_search_routes
+    from .routes import sources, daily, graph, export, scan, summaries, topic_routes, topic_management_routes, article_search_routes, daily_topics_routes
 
     # Include route modules with /api prefix
     app.include_router(sources.router, prefix="/api/sources", tags=["sources"])
@@ -183,12 +183,19 @@ def register_routes(app: FastAPI):
     app.include_router(topic_routes.router, tags=["topics"])
     app.include_router(topic_management_routes.router, tags=["topic-management"])
     app.include_router(article_search_routes.router, tags=["articles"])
+    app.include_router(daily_topics_routes.router, tags=["daily-topics"])
 
     # Web page routes (without /api prefix)
     @app.get("/", include_in_schema=False)
-    async def root():
-        """Redirect root to sources page."""
-        return RedirectResponse(url="/sources", status_code=302)
+    async def root(request: Request):
+        """Serve the Today's Topics page as home."""
+        from fastapi.templating import Jinja2Templates
+
+        templates = Jinja2Templates(directory="templates")
+        return templates.TemplateResponse("pages/today_topics.html", {
+            "request": request,
+            "title": "Today's Topics"
+        })
 
     @app.get("/sources", include_in_schema=False)
     async def sources_page(request: Request):

@@ -13,6 +13,7 @@ from .jobs import summary_embedding_jobs
 from .jobs import backfill_jobs
 from .jobs import reddit_jobs
 from .jobs import topic_analysis_jobs_ml
+from .jobs import daily_topics_jobs
 
 # Re-export commonly used utilities for backward compatibility
 from .jobs.base_task import CallbackTask as BaseTask, ensure_database_connection
@@ -48,6 +49,11 @@ from .jobs.topic_analysis_jobs_ml import (
     generate_shared_summaries_sync as _generate_shared_summaries,
     process_new_article_sync as _process_new_article,
     full_topic_analysis_pipeline_sync as _full_topic_analysis_pipeline
+)
+# Import daily topics functions
+from .jobs.daily_topics_jobs import (
+    generate_daily_topics_sync as _generate_daily_topics,
+    regenerate_daily_topics_sync as _regenerate_daily_topics
 )
 
 # Import the Celery app for any additional configuration
@@ -89,6 +95,18 @@ def full_topic_analysis_pipeline(self):
     """Celery task wrapper for full_topic_analysis_pipeline. Priority 1 (lowest, for maintenance)."""
     # Run the synchronous wrapper function
     return _full_topic_analysis_pipeline()
+
+@celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.generate_daily_topics_task', priority=2)
+def generate_daily_topics_task(self):
+    """Celery task wrapper for generate_daily_topics. Priority 2 (low, scheduled maintenance)."""
+    # Run the synchronous wrapper function
+    return _generate_daily_topics()
+
+@celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.regenerate_daily_topics_task', priority=10)
+def regenerate_daily_topics_task(self):
+    """Celery task wrapper for regenerate_daily_topics. Priority 10 (highest, user-initiated)."""
+    # Run the synchronous wrapper function
+    return _regenerate_daily_topics()
 
 # All tasks are now automatically registered through the imports above
 # Task names remain the same for backward compatibility:
