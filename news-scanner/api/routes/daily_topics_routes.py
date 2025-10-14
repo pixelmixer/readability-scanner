@@ -17,6 +17,36 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/daily-topics", tags=["daily-topics"])
 
 
+def select_images_from_articles(articles: List[Dict[str, Any]]) -> tuple[str | None, str | None]:
+    """
+    Automatically select primary and secondary images from articles.
+
+    Args:
+        articles: List of article dictionaries
+
+    Returns:
+        Tuple of (primary_image_url, secondary_image_url)
+    """
+    # Filter articles that have images and exclude placeholder images
+    articles_with_images = [
+        article for article in articles
+        if article.get('image_url') and '-placeholder' not in article.get('image_url', '')
+    ]
+
+    if not articles_with_images:
+        return None, None
+
+    # If only one article has an image, use it as primary
+    if len(articles_with_images) == 1:
+        return articles_with_images[0]['image_url'], None
+
+    # If two or more articles have images, use first as primary, second as secondary
+    primary_image = articles_with_images[0]['image_url']
+    secondary_image = articles_with_images[1]['image_url'] if len(articles_with_images) > 1 else None
+
+    return primary_image, secondary_image
+
+
 class TopicGroup(BaseModel):
     """Model for a topic group."""
     topic_id: str
@@ -27,6 +57,8 @@ class TopicGroup(BaseModel):
     combined_summary_status: str
     articles: List[Dict[str, Any]]
     created_at: str
+    primary_image: str | None = None
+    secondary_image: str | None = None
 
 
 class DailyTopicsResponse(BaseModel):
@@ -72,6 +104,10 @@ async def get_todays_topics(db: AsyncIOMotorDatabase = Depends(get_database)):
                 if most_recent_generated_at is None or date_generated > most_recent_generated_at:
                     most_recent_generated_at = date_generated
 
+            # Automatically select images from articles
+            articles = doc.get('articles', [])
+            primary_image, secondary_image = select_images_from_articles(articles)
+
             topic_groups.append(TopicGroup(
                 topic_id=doc['topic_id'],
                 topic_headline=doc.get('topic_headline'),
@@ -79,8 +115,10 @@ async def get_todays_topics(db: AsyncIOMotorDatabase = Depends(get_database)):
                 article_count=doc['article_count'],
                 combined_summary=doc.get('combined_summary'),
                 combined_summary_status=doc.get('combined_summary_status', 'unknown'),
-                articles=doc.get('articles', []),
-                created_at=doc['created_at'].isoformat() if isinstance(doc['created_at'], datetime) else doc['created_at']
+                articles=articles,
+                created_at=doc['created_at'].isoformat() if isinstance(doc['created_at'], datetime) else doc['created_at'],
+                primary_image=primary_image,
+                secondary_image=secondary_image
             ))
 
         return DailyTopicsResponse(

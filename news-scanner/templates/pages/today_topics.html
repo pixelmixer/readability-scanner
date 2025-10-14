@@ -448,6 +448,24 @@
     }
 }
 
+/* Automatic Image Display Styling */
+.primary-image-container img {
+    border: 2px solid #007bff;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+}
+
+.secondary-image-inline img {
+    border: 1px solid #dee2e6;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Dark mode for automatic images */
+@media (prefers-color-scheme: dark) {
+    .secondary-image-inline img {
+        border-color: #4a5568;
+    }
+}
+
 /* Responsive adjustments for CSS Grid */
 @media (max-width: 767.98px) {
     /* Keep header area with some padding for better spacing */
@@ -524,6 +542,9 @@ function loadTopics() {
         .done(function(data) {
             console.log('Topics loaded:', data);
 
+            // Store topics data globally for debugging
+            window.topicsData = data;
+
             if (data.success) {
                 if (data.count === 0) {
                     $('#no-topics-state').show();
@@ -577,6 +598,24 @@ function createTopicCard(topic, index) {
         `;
     }).join('');
 
+    // Create primary image display
+    const primaryImageHTML = topic.primary_image ? `
+        <div class="primary-image-container mb-3">
+            <img src="${topic.primary_image}" alt="${escapeHtml(topic.topic_headline || 'Topic image')}"
+                 class="img-fluid rounded" style="width: 100%;"
+                 onerror="this.style.display='none'">
+        </div>
+    ` : '';
+
+    // Create secondary image display - inline with story content
+    const secondaryImageHTML = topic.secondary_image ? `
+        <div class="secondary-image-inline mt-3 mb-3">
+            <img src="${topic.secondary_image}" alt="${escapeHtml(topic.topic_headline || 'Story image')}"
+                 class="img-fluid rounded" style="width: 100%;"
+                 onerror="this.style.display='none'">
+        </div>
+    ` : '';
+
     const card = $(`
         <div class="article-item">
             <div class="card h-100">
@@ -593,9 +632,13 @@ function createTopicCard(topic, index) {
                         </small>
                     </div>
 
+                    ${primaryImageHTML}
+
                     <div class="article-content summary-content">
                         <p class="card-text">${hasSummary ? escapeHtml(topic.combined_summary) : 'Combined summary not available'}</p>
                     </div>
+
+                    ${secondaryImageHTML}
 
                     <!-- Collapsible Sources Section -->
                     <div class="sources-section" id="${topicId}-sources" style="display: none;">
@@ -637,6 +680,7 @@ function toggleSources(topicId) {
         text.text('Hide Sources');
     }
 }
+
 
 function regenerateTopics() {
     console.log('Triggering topic regeneration...');
