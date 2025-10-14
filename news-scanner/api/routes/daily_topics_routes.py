@@ -56,8 +56,8 @@ async def get_todays_topics(db: AsyncIOMotorDatabase = Depends(get_database)):
     try:
         topics_collection = db["daily_topics"]
 
-        # Get all topic groups, sorted by article count (most articles first)
-        cursor = topics_collection.find({}).sort("article_count", -1)
+        # Get all topic groups, sorted by date_generated (newest first)
+        cursor = topics_collection.find({}).sort("date_generated", -1)
         topic_docs = await cursor.to_list(length=None)
 
         logger.info(f"Found {len(topic_docs)} topic groups")
