@@ -116,6 +116,14 @@
     border-bottom: 1px solid #dee2e6;
 }
 
+/* Dark mode support for topic summary */
+@media (prefers-color-scheme: dark) {
+    .topic-summary {
+        background-color: #2d3748;
+        border-bottom: 1px solid #4a5568;
+    }
+}
+
 .topic-summary-text {
     font-size: 1rem;
     line-height: 1.6;
@@ -140,6 +148,30 @@
 
 .article-item:hover {
     background-color: #f8f9fa;
+}
+
+/* Dark mode support for article hover */
+@media (prefers-color-scheme: dark) {
+    .article-item:hover {
+        background-color: #374151;
+    }
+
+    .article-title {
+        color: #e5e7eb !important;
+    }
+
+    .expand-toggle {
+        background-color: #2d3748;
+        border-top: 1px solid #4a5568;
+    }
+
+    .expand-toggle:hover {
+        background-color: #374151;
+    }
+
+    .topic-card {
+        border-color: #4a5568;
+    }
 }
 
 .article-title {
@@ -329,7 +361,7 @@ function createTopicCard(topic, index) {
             <div class="topic-card">
                 <div class="topic-header">
                     <div class="d-flex justify-content-between align-items-start">
-                        <div class="topic-title">Topic ${index + 1}</div>
+                        <div class="topic-title">${escapeHtml(topic.topic_headline || `Topic ${index + 1}`)}</div>
                         <span class="badge-article-count">
                             ${topic.article_count} article${topic.article_count !== 1 ? 's' : ''}
                         </span>

@@ -489,8 +489,8 @@ class MLServiceClient:
     async def generate_daily_topics(
         self,
         days_back: int = 7,
-        similarity_threshold: float = 0.80,
-        min_group_size: int = 5,
+        similarity_threshold: float = 0.75,
+        min_group_size: int = 3,
         max_articles: int = 500
     ) -> Dict[str, Any]:
         """

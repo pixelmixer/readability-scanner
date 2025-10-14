@@ -231,16 +231,18 @@ Article:"""
                 }
 
             # Prepare combined content
-            combined_prompt = """You are an expert news analyst. The following are summaries of multiple related articles on the same topic. Create a comprehensive 3-4 sentence overview that captures the main narrative, key developments, and important points across all these articles. Synthesize the information without simply repeating individual summaries.
+            combined_prompt = """You are a skilled news writer. Using the summaries below as your primary sources, write a cohesive 4-5 sentence news article that tells the complete story. Write in the style of professional journalism - lead with the most newsworthy information, provide context and details, and ensure the piece is readable and informative on its own without requiring readers to consult the original articles. Reference the information naturally as if you're synthesizing multiple reports into one comprehensive story.
 
-Related Article Summaries:
+Article Summaries (Your Source Material):
 """
 
             for i, summary in enumerate(summaries, 1):
                 combined_prompt += f"\n{i}. {summary}"
 
             if topic_context:
-                combined_prompt += f"\n\nTopic Context: {topic_context}"
+                combined_prompt += f"\n\nContext: {topic_context}"
+
+            combined_prompt += "\n\nWrite your news synthesis now (4-5 sentences, journalistic style):"
 
             logger.info(f"Generating combined summary from {len(summaries)} article summaries")
 
@@ -313,6 +315,94 @@ Related Article Summaries:
                 "model": self.model,
                 "prompt_version": self.prompt_version,
                 "generated_at": datetime.utcnow()
+            }
+
+    async def generate_topic_headline(self, summaries: list[str], combined_summary: str = None) -> Dict[str, Any]:
+        """
+        Generate a short, compelling headline for a topic group.
+
+        Args:
+            summaries: List of individual article summaries
+            combined_summary: Optional pre-generated combined summary
+
+        Returns:
+            Dict with success status and headline
+        """
+        try:
+            if not summaries and not combined_summary:
+                return {
+                    "success": False,
+                    "error": "No content provided for headline generation",
+                    "headline": None
+                }
+
+            # Prepare prompt
+            headline_prompt = """You are a headline writer for a major news publication. Create a short, punchy headline (5-8 words maximum) that captures the main newsworthy angle of this topic. The headline should be clear, engaging, and follow AP style.
+
+"""
+
+            if combined_summary:
+                headline_prompt += f"Topic Summary:\n{combined_summary}\n\n"
+            else:
+                headline_prompt += "Related Article Summaries:\n"
+                for i, summary in enumerate(summaries[:3], 1):  # Use first 3 summaries
+                    headline_prompt += f"{i}. {summary}\n"
+                headline_prompt += "\n"
+
+            headline_prompt += "Write a headline (5-8 words, AP style, no punctuation at end):"
+
+            logger.info(f"Generating topic headline")
+
+            # Make request to LLM
+            llm_response = await self._make_llm_request(headline_prompt)
+
+            if llm_response is None:
+                return {
+                    "success": False,
+                    "error": "LLM API unavailable after multiple retries",
+                    "headline": None
+                }
+
+            # Extract headline from response
+            try:
+                choices = llm_response.get("choices", [])
+                if choices and len(choices) > 0:
+                    headline = choices[0].get("message", {}).get("content", "").strip()
+                    # Remove quotes if LLM added them
+                    headline = headline.strip('"\'')
+
+                    if headline:
+                        return {
+                            "success": True,
+                            "headline": headline
+                        }
+                    else:
+                        return {
+                            "success": False,
+                            "error": "Empty headline returned from LLM",
+                            "headline": None
+                        }
+                else:
+                    return {
+                        "success": False,
+                        "error": "No choices in LLM response",
+                        "headline": None
+                    }
+
+            except Exception as e:
+                logger.error(f"Error parsing LLM response for headline: {e}")
+                return {
+                    "success": False,
+                    "error": f"Error parsing LLM response: {str(e)}",
+                    "headline": None
+                }
+
+        except Exception as e:
+            logger.error(f"Error in generate_topic_headline: {e}")
+            return {
+                "success": False,
+                "error": f"Unexpected error: {str(e)}",
+                "headline": None
             }
 
 

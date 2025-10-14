@@ -20,6 +20,7 @@ router = APIRouter(prefix="/api/daily-topics", tags=["daily-topics"])
 class TopicGroup(BaseModel):
     """Model for a topic group."""
     topic_id: str
+    topic_headline: str | None
     date_generated: str
     article_count: int
     combined_summary: str | None
@@ -73,6 +74,7 @@ async def get_todays_topics(db: AsyncIOMotorDatabase = Depends(get_database)):
 
             topic_groups.append(TopicGroup(
                 topic_id=doc['topic_id'],
+                topic_headline=doc.get('topic_headline'),
                 date_generated=doc['date_generated'].isoformat() if isinstance(doc['date_generated'], datetime) else doc['date_generated'],
                 article_count=doc['article_count'],
                 combined_summary=doc.get('combined_summary'),

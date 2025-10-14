@@ -65,8 +65,8 @@ async def generate_daily_topics() -> Dict[str, Any]:
         try:
             ml_result = await ml_client.generate_daily_topics(
                 days_back=7,
-                similarity_threshold=0.80,  # High threshold for quality topics
-                min_group_size=5,  # Minimum 5 articles per topic
+                similarity_threshold=0.75,  # Balanced threshold for good topic variety
+                min_group_size=3,  # Minimum 3 articles per topic
                 max_articles=500  # Limit for performance (500 articles = ~125K comparisons)
             )
         except Exception as ml_error:
@@ -122,23 +122,36 @@ async def generate_daily_topics() -> Dict[str, Any]:
                 topic_context=f"Topic group with {len(articles)} related articles"
             )
 
+            combined_summary = combined_summary_result.get('summary', '') if combined_summary_result.get('success') else None
+
+            # Generate topic headline
+            headline_result = await summary_service.generate_topic_headline(
+                summaries,
+                combined_summary=combined_summary
+            )
+
+            topic_headline = headline_result.get('headline') if headline_result.get('success') else f"Topic {idx + 1}"
+
             topic_id = f"{datetime.now().strftime('%Y%m%d')}_{idx + 1}"
 
             final_topic_group = {
                 "topic_id": topic_id,
+                "topic_headline": topic_headline,
                 "date_generated": datetime.utcnow(),
                 "article_count": len(articles),
                 "articles": articles,
-                "combined_summary": combined_summary_result.get('summary', '') if combined_summary_result.get('success') else None,
+                "combined_summary": combined_summary,
                 "combined_summary_status": "completed" if combined_summary_result.get('success') else "failed",
                 "combined_summary_error": combined_summary_result.get('error') if not combined_summary_result.get('success') else None,
+                "headline_status": "completed" if headline_result.get('success') else "failed",
+                "headline_error": headline_result.get('error') if not headline_result.get('success') else None,
                 "created_at": datetime.utcnow(),
                 "date_range_start": cutoff_date,
                 "date_range_end": datetime.now()
             }
 
             final_topic_groups.append(final_topic_group)
-            logger.info(f"Topic {topic_id}: {len(articles)} articles, summary status: {final_topic_group['combined_summary_status']}")
+            logger.info(f"Topic {topic_id}: '{topic_headline}' with {len(articles)} articles, summary status: {final_topic_group['combined_summary_status']}")
 
         # Clear old daily topics and insert new ones
         delete_result = await topics_collection.delete_many({})

@@ -359,8 +359,8 @@ class ArticleTopicsResponse(BaseModel):
 
 class DailyTopicsRequest(BaseModel):
     days_back: int = 7
-    similarity_threshold: float = 0.80  # High threshold for quality topics
-    min_group_size: int = 5  # At least 5 articles per topic
+    similarity_threshold: float = 0.75  # Balanced threshold for topic variety
+    min_group_size: int = 3  # At least 3 articles per topic
     max_articles: int = 500  # Limit articles for performance
 
 
@@ -472,6 +472,7 @@ async def generate_daily_topics(request: DailyTopicsRequest):
                 topic_group = {
                     "articles": [
                         {
+                            "_id": str(art.get('_id')),  # Convert ObjectId to string
                             "url": art.get('url'),
                             "title": art.get('title', 'Untitled'),
                             "summary": art.get('summary', ''),
