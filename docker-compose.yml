@@ -179,7 +179,7 @@ services:
     build: ./news-scanner/
     container_name: celery-worker
     env_file: ./news-scanner/.env
-    command: celery -A celery_app.celery_worker worker --loglevel=info --queues=high,normal,low -E
+    command: celery -A celery_app.celery_worker worker --loglevel=info --queues=high,normal,low,ml_queue,llm_queue -E
     networks:
       - readable
     depends_on:

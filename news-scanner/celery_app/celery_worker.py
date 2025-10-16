@@ -63,24 +63,36 @@ celery_app = Celery(
 celery_app.conf.update(
     # Task routing - assign tasks to specific queues
     task_routes={
+        # High priority tasks
         'celery_app.tasks.manual_refresh_source_task': {'queue': 'high'},
+        'celery_app.tasks.cleanup_old_date_fields_task': {'queue': 'high'},
+        'celery_app.tasks.regenerate_daily_topics_task': {'queue': 'high'},
+
+        # Normal priority tasks
         'celery_app.tasks.scan_single_source_task': {'queue': 'normal'},
         'celery_app.tasks.scan_article_task': {'queue': 'normal'},
+
+        # Low priority tasks
         'celery_app.tasks.scheduled_scan_trigger_task': {'queue': 'low'},
-        'celery_app.tasks.cleanup_old_date_fields_task': {'queue': 'high'},
         'celery_app.tasks.backfill_publication_dates_task': {'queue': 'low'},
         'celery_app.tasks.reddit_backfill_task': {'queue': 'low'},
         'celery_app.tasks.reddit_backfill_stats_task': {'queue': 'low'},
-        # Topic analysis tasks
-        'celery_app.tasks.generate_article_embedding': {'queue': 'normal'},
-        'celery_app.tasks.batch_generate_embeddings': {'queue': 'low'},
-        'celery_app.tasks.group_articles_by_topics': {'queue': 'low'},
-        'celery_app.tasks.generate_shared_summaries': {'queue': 'low'},
-        'celery_app.tasks.process_new_article': {'queue': 'normal'},
-        'celery_app.tasks.full_topic_analysis_pipeline': {'queue': 'low'},
-        # Daily topics tasks
-        'celery_app.tasks.generate_daily_topics_task': {'queue': 'low'},
-        'celery_app.tasks.regenerate_daily_topics_task': {'queue': 'high'},
+
+        # ML service tasks - dedicated queue
+        'celery_app.tasks.generate_article_embedding': {'queue': 'ml_queue'},
+        'celery_app.tasks.batch_generate_embeddings': {'queue': 'ml_queue'},
+        'celery_app.tasks.group_articles_by_topics': {'queue': 'ml_queue'},
+        'celery_app.tasks.process_new_article': {'queue': 'ml_queue'},
+        'celery_app.tasks.full_topic_analysis_pipeline': {'queue': 'ml_queue'},
+        'celery_app.tasks.generate_summary_embedding_task': {'queue': 'ml_queue'},
+        'celery_app.tasks.batch_generate_summary_embeddings_task': {'queue': 'ml_queue'},
+
+        # LLM tasks - dedicated queue
+        'celery_app.tasks.generate_article_summary_task': {'queue': 'llm_queue'},
+        'celery_app.tasks.process_summary_backlog_task': {'queue': 'llm_queue'},
+        'celery_app.tasks.manual_summary_trigger_task': {'queue': 'llm_queue'},
+        'celery_app.tasks.generate_daily_topics_task': {'queue': 'llm_queue'},
+        'celery_app.tasks.generate_shared_summaries': {'queue': 'llm_queue'},
     },
 
     # Task priority settings
@@ -149,5 +161,5 @@ from celery_app import tasks
 
 logger.info("🚀 Celery application configured successfully")
 logger.info(f"📡 Redis broker: {REDIS_URL}")
-logger.info("📋 Task queues: high (manual), normal (automatic), low (maintenance)")
+logger.info("📋 Task queues: high (manual), normal (automatic), low (maintenance), ml_queue (ML tasks), llm_queue (LLM tasks)")
 

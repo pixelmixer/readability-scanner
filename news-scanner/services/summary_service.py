@@ -1,9 +1,8 @@
 """
-Summary generation service using external LLM API.
+Summary generation service using LLM provider abstraction.
 """
 
 import logging
-import aiohttp
 import asyncio
 from datetime import datetime
 from pathlib import Path
@@ -11,17 +10,16 @@ from typing import Optional, Dict, Any
 import hashlib
 
 from config import settings
+from .llm_providers import LLMProviderManager
 
 logger = logging.getLogger(__name__)
 
 
 class SummaryService:
-    """Service for generating article summaries using external LLM API."""
+    """Service for generating article summaries using LLM provider abstraction."""
 
     def __init__(self):
-        self.llm_api_url = "http://192.168.86.32:1234/v1/chat/completions"
-        self.model = "openai/gpt-oss-20b"
-        self.timeout = 90  # seconds - increased to handle LLM API delays
+        self.provider_manager = LLMProviderManager()
         self.max_retries = 3
         self.retry_delay = 5  # seconds
 
@@ -59,45 +57,34 @@ Article:"""
             return "unknown"
 
     async def _make_llm_request(self, content: str) -> Optional[Dict[str, Any]]:
-        """Make a request to the LLM API."""
-        payload = {
-            "model": self.model,
-            "messages": [
-                {
-                    "role": "system",
-                    "content": self.prompt_template
-                },
-                {
-                    "role": "user",
-                    "content": content
-                }
-            ],
-            "temperature": 0.7,
-            "max_tokens": -1,
-            "stream": False
-        }
-
-        headers = {
-            "Content-Type": "application/json"
-        }
+        """Make a request using the LLM provider manager."""
+        messages = [
+            {
+                "role": "system",
+                "content": self.prompt_template
+            },
+            {
+                "role": "user",
+                "content": content
+            }
+        ]
 
         for attempt in range(self.max_retries):
             try:
                 logger.debug(f"Making LLM request (attempt {attempt + 1}/{self.max_retries})")
 
-                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.timeout)) as session:
-                    async with session.post(self.llm_api_url, json=payload, headers=headers) as response:
-                        if response.status == 200:
-                            result = await response.json()
-                            logger.debug("LLM request successful")
-                            return result
-                        else:
-                            logger.warning(f"LLM API returned status {response.status}: {await response.text()}")
+                result = await self.provider_manager.generate_completion(
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=-1
+                )
 
-            except asyncio.TimeoutError:
-                logger.warning(f"LLM request timeout (attempt {attempt + 1}/{self.max_retries})")
-            except aiohttp.ClientError as e:
-                logger.warning(f"LLM request client error (attempt {attempt + 1}/{self.max_retries}): {e}")
+                if result:
+                    logger.debug("LLM request successful")
+                    return result
+                else:
+                    logger.warning(f"LLM request returned no result (attempt {attempt + 1}/{self.max_retries})")
+
             except Exception as e:
                 logger.error(f"Unexpected error in LLM request (attempt {attempt + 1}/{self.max_retries}): {e}")
 
@@ -155,7 +142,8 @@ Article:"""
                         return {
                             "success": True,
                             "summary": summary,
-                            "model": self.model,
+                            "model": llm_response.get("model", "unknown"),
+                            "provider": "llm_provider_manager",
                             "prompt_version": self.prompt_version,
                             "generated_at": datetime.utcnow(),
                             "llm_usage": llm_response.get("usage", {}),
@@ -166,7 +154,8 @@ Article:"""
                             "success": False,
                             "error": "Empty summary returned from LLM",
                             "summary": None,
-                            "model": self.model,
+                            "model": llm_response.get("model", "unknown"),
+                            "provider": "llm_provider_manager",
                             "prompt_version": self.prompt_version,
                             "generated_at": datetime.utcnow()
                         }
@@ -269,7 +258,8 @@ Article Summaries (Your Source Material):
                         return {
                             "success": True,
                             "summary": summary,
-                            "model": self.model,
+                            "model": llm_response.get("model", "unknown"),
+                            "provider": "llm_provider_manager",
                             "prompt_version": self.prompt_version,
                             "generated_at": datetime.utcnow(),
                             "source_summaries_count": len(summaries),
@@ -281,7 +271,8 @@ Article Summaries (Your Source Material):
                             "success": False,
                             "error": "Empty summary returned from LLM",
                             "summary": None,
-                            "model": self.model,
+                            "model": llm_response.get("model", "unknown"),
+                            "provider": "llm_provider_manager",
                             "prompt_version": self.prompt_version,
                             "generated_at": datetime.utcnow()
                         }

@@ -189,7 +189,7 @@ def batch_generate_summary_embeddings_task(self, batch_size: int = 50) -> Dict[s
             for article in articles:
                 task_result = generate_summary_embedding_task.apply_async(
                     args=[article['url']],
-                    queue='normal',
+                    queue='ml_queue',
                     priority=4  # Same priority as summary generation
                 )
 

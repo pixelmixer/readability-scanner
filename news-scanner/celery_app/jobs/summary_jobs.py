@@ -107,7 +107,7 @@ def generate_article_summary_task(self, article_url: str) -> Dict[str, Any]:
                         from .summary_embedding_jobs import generate_summary_embedding_task
                         embedding_task_result = generate_summary_embedding_task.apply_async(
                             args=[article_url],
-                            queue='normal',
+                            queue='ml_queue',
                             priority=4  # Same priority as summary generation
                         )
                         logger.info(f"🧠 Queued summary embedding generation for: {article_url} (task: {embedding_task_result.id})")
@@ -225,7 +225,7 @@ def process_summary_backlog_task(self, batch_size: int = 10) -> Dict[str, Any]:
             for article in articles:
                 task_result = generate_article_summary_task.apply_async(
                     args=[str(article.url)],
-                    queue='normal',
+                    queue='llm_queue',
                     priority=3  # Lower priority than RSS scanning
                 )
 
@@ -283,7 +283,7 @@ def manual_summary_trigger_task(self, batch_size: int = 50) -> Dict[str, Any]:
             # Process the backlog
             result = process_summary_backlog_task.apply_async(
                 args=[batch_size],
-                queue='normal',
+                queue='llm_queue',
                 priority=5  # Higher priority for manual triggers
             )
 
