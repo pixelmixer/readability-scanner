@@ -22,6 +22,7 @@ class SummaryService:
         self.provider_manager = LLMProviderManager()
         self.max_retries = 3
         self.retry_delay = 5  # seconds
+        self.model = "unknown"  # Default model name for error cases
 
         # Load prompt from file
         self.prompt_template = self._load_prompt_template()

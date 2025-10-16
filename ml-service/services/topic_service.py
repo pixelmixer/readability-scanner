@@ -60,14 +60,10 @@ class TopicService:
                     "topic_groups": []
                 }
 
-            # Check if article has embedding
-            if not article.get("embedding"):
-                return {
-                    "success": False,
-                    "error": "Article does not have embedding - run embedding generation first",
-                    "topics": [],
-                    "topic_groups": []
-                }
+            # Check if article has embedding - if not, still proceed with basic analysis
+            has_embedding = bool(article.get("embedding"))
+            if not has_embedding:
+                logger.warning(f"Article {article_url} does not have embedding - using basic topic analysis")
 
             # For now, return a simple analysis
             # In a full implementation, this would use the embedding to find similar articles
