@@ -5,129 +5,147 @@
 {% block extra_styles %}
 <!-- Article-specific styles -->
 <style>
-        .article-content {
-            line-height: 1.7;
-        }
-        .article-content p {
-            margin-bottom: 1rem;
-        }
-        .article-content h1, .article-content h2, .article-content h3,
-        .article-content h4, .article-content h5, .article-content h6 {
-            margin-top: 1.5rem;
-            margin-bottom: 0.5rem;
-            font-weight: 600;
-        }
-        .readability-score {
-            transition: all 0.3s ease;
-        }
-        .readability-score:hover {
-            transform: scale(1.05);
-        }
-        .metric-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-        }
-        .metric-card.secondary {
-            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-        }
-        .metric-card.tertiary {
-            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-        }
-        .similarity-bar {
-            background: linear-gradient(90deg, #3b82f6 0%, #10b981 100%);
-        }
-        .similar-article-card {
-            transition: all 0.3s ease;
-        }
-        .similar-article-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        }
+    .article-content {
+        line-height: 1.7;
+    }
 
-        /* Mobile responsiveness fixes */
-        .article-content {
+    .article-content p {
+        margin-bottom: 1rem;
+    }
+
+    .article-content h1,
+    .article-content h2,
+    .article-content h3,
+    .article-content h4,
+    .article-content h5,
+    .article-content h6 {
+        margin-top: 1.5rem;
+        margin-bottom: 0.5rem;
+        font-weight: 600;
+    }
+
+    .readability-score {
+        transition: all 0.3s ease;
+    }
+
+    .readability-score:hover {
+        transform: scale(1.05);
+    }
+
+    .metric-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .metric-card.secondary {
+        background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .metric-card.tertiary {
+        background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .similarity-bar {
+        background: linear-gradient(90deg, #3b82f6 0%, #10b981 100%);
+    }
+
+    .similar-article-card {
+        transition: all 0.3s ease;
+    }
+
+    .similar-article-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Mobile responsiveness fixes */
+    .article-content {
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+    }
+
+    /* Responsive iframe handling */
+    .iframe-container {
+        position: relative;
+        width: 100%;
+        height: 0;
+        overflow: hidden;
+        background: var(--bg-secondary);
+    }
+
+    .iframe-container iframe {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        border: none;
+    }
+
+    /* YouTube specific styling */
+    .youtube-iframe-container {
+        padding-bottom: 56.25%;
+        /* 16:9 aspect ratio */
+    }
+
+    /* Other iframe aspect ratios */
+    .iframe-4-3 {
+        padding-bottom: 75%;
+        /* 4:3 aspect ratio */
+    }
+
+    .iframe-1-1 {
+        padding-bottom: 100%;
+        /* 1:1 aspect ratio */
+    }
+
+    /* Ensure text doesn't overflow on mobile */
+    @media (max-width: 768px) {
+
+        .article-content p,
+        .article-content h1,
+        .article-content h2,
+        .article-content h3,
+        .article-content h4,
+        .article-content h5,
+        .article-content h6 {
             word-wrap: break-word;
             overflow-wrap: break-word;
             hyphens: auto;
+            max-width: 100%;
         }
 
-        /* Responsive iframe handling */
-        .iframe-container {
-            position: relative;
-            width: 100%;
-            height: 0;
-            overflow: hidden;
-            background: var(--bg-secondary);
+        .article-content img {
+            max-width: 100%;
+            height: auto;
         }
 
-        .iframe-container iframe {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            border: none;
+        .metric-card {
+            margin-bottom: var(--spacing-sm);
         }
 
-        /* YouTube specific styling */
-        .youtube-iframe-container {
-            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+        /* Remove all padding from container-fluid except in navbar */
+        .container-fluid:not(nav .container-fluid) {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
         }
 
-        /* Other iframe aspect ratios */
-        .iframe-4-3 {
-            padding-bottom: 75%; /* 4:3 aspect ratio */
+        /* Remove all padding from articleContent */
+        #articleContent {
+            padding-left: 0 !important;
+            padding-right: 0 !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
         }
 
-        .iframe-1-1 {
-            padding-bottom: 100%; /* 1:1 aspect ratio */
+        /* Restore normal margins for card-modern elements */
+        .card-modern {
+            margin-left: 0 !important;
+            margin-right: 0 !important;
         }
-
-        /* Ensure text doesn't overflow on mobile */
-        @media (max-width: 768px) {
-            .article-content p,
-            .article-content h1,
-            .article-content h2,
-            .article-content h3,
-            .article-content h4,
-            .article-content h5,
-            .article-content h6 {
-                word-wrap: break-word;
-                overflow-wrap: break-word;
-                hyphens: auto;
-                max-width: 100%;
-            }
-
-            .article-content img {
-                max-width: 100%;
-                height: auto;
-            }
-
-            .metric-card {
-                margin-bottom: var(--spacing-sm);
-            }
-
-            /* Remove all padding from container-fluid except in navbar */
-            .container-fluid:not(nav .container-fluid) {
-                padding-left: 0 !important;
-                padding-right: 0 !important;
-            }
-
-            /* Remove all padding from articleContent */
-            #articleContent {
-                padding-left: 0 !important;
-                padding-right: 0 !important;
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-            }
-
-            /* Restore normal margins for card-modern elements */
-            .card-modern {
-                margin-left: 0 !important;
-                margin-right: 0 !important;
-            }
-        }
-    </style>
+    }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -170,446 +188,418 @@
                         </a>
                     </div>
                 </div>
+            </div>
 
-                <!-- Readability Overview -->
-                <div class="row g-3 mt-4">
-                    <div class="col-6 col-md-3">
-                        <div class="metric-card readability-score bg-gradient-to-r from-green-400 to-blue-500 p-3 rounded text-white text-center">
-                            <div class="small opacity-90">Flesch Score</div>
-                            <div id="fleschScore" class="h4 fw-bold mb-0">-</div>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="metric-card readability-score secondary p-3 rounded text-white text-center">
-                            <div class="small opacity-90">Grade Level</div>
-                            <div id="gradeLevel" class="h4 fw-bold mb-0">-</div>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="metric-card readability-score tertiary p-3 rounded text-white text-center">
-                            <div class="small opacity-90">Words</div>
-                            <div id="wordCount" class="h4 fw-bold mb-0">-</div>
-                        </div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="metric-card readability-score bg-gradient-to-r from-purple-400 to-pink-500 p-3 rounded text-white text-center">
-                            <div class="small opacity-90">Sentences</div>
-                            <div id="sentenceCount" class="h4 fw-bold mb-0">-</div>
-                        </div>
+            <!-- Article Summary (if available) -->
+            <div id="summarySection" class="card-modern mb-4 d-none">
+                <div class="card-body">
+                    <h2 class="text-subheading mb-3">
+                        <i class="fas fa-file-text me-2"></i>
+                        Article Summary
+                    </h2>
+                    <div id="articleSummary" class="text-body"></div>
+                    <div class="mt-3 text-caption">
+                        <span id="summaryInfo"></span>
                     </div>
                 </div>
-                </div>
+            </div>
 
-        <!-- Article Summary (if available) -->
-        <div id="summarySection" class="card-modern mb-4 d-none">
-            <div class="card-body">
-                <h2 class="text-subheading mb-3">
-                    <i class="fas fa-file-text me-2"></i>
-                    Article Summary
-                </h2>
-                <div id="articleSummary" class="text-body"></div>
-                <div class="mt-3 text-caption">
-                    <span id="summaryInfo"></span>
+            <!-- Article Body - No card wrapper for better mobile experience -->
+            <div class="mb-4">
+                <div id="articleBody" class="article-content text-body">
+                    <!-- Article content will be populated here -->
                 </div>
             </div>
-        </div>
 
-        <!-- Article Body - No card wrapper for better mobile experience -->
-        <div class="mb-4">
-            <div id="articleBody" class="article-content text-body">
-                <!-- Article content will be populated here -->
-            </div>
-        </div>
-
-        <!-- Similar Articles by Content -->
-        <div id="similarArticlesSection" class="card-modern mb-4 d-none">
-            <div class="card-body">
-                <h2 class="text-subheading mb-4">
-                    <i class="fas fa-file-alt me-2"></i>
-                    Similar Articles by Content
-                    <span id="similarArticlesCount" class="text-caption fw-normal"></span>
-                </h2>
-                <div id="similarArticles" class="d-flex flex-column gap-3">
-                    <!-- Similar articles will be populated here -->
+            <!-- Similar Articles by Content -->
+            <div id="similarArticlesSection" class="card-modern mb-4 d-none">
+                <div class="card-body">
+                    <h2 class="text-subheading mb-4">
+                        <i class="fas fa-file-alt me-2"></i>
+                        Similar Articles by Content
+                        <span id="similarArticlesCount" class="text-caption fw-normal"></span>
+                    </h2>
+                    <div id="similarArticles" class="d-flex flex-column gap-3">
+                        <!-- Similar articles will be populated here -->
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Similar Articles by Summary -->
-        <div id="similarArticlesSummarySection" class="card-modern mb-4 d-none">
-            <div class="card-body">
-                <h2 class="text-subheading mb-4">
-                    <i class="fas fa-align-left me-2"></i>
-                    Similar Articles by Summary
-                    <span id="similarArticlesSummaryCount" class="text-caption fw-normal"></span>
-                </h2>
-                <div id="similarArticlesSummary" class="d-flex flex-column gap-3">
-                    <!-- Similar articles by summary will be populated here -->
+            <!-- Similar Articles by Summary -->
+            <div id="similarArticlesSummarySection" class="card-modern mb-4 d-none">
+                <div class="card-body">
+                    <h2 class="text-subheading mb-4">
+                        <i class="fas fa-align-left me-2"></i>
+                        Similar Articles by Summary
+                        <span id="similarArticlesSummaryCount" class="text-caption fw-normal"></span>
+                    </h2>
+                    <div id="similarArticlesSummary" class="d-flex flex-column gap-3">
+                        <!-- Similar articles by summary will be populated here -->
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Detailed Readability Metrics -->
-        <div class="card-modern">
-            <div class="card-body">
-                <h2 class="text-subheading mb-4">
-                    <i class="fas fa-chart-bar me-2"></i>
-                    Readability Analysis
-                </h2>
+            <!-- Detailed Readability Metrics -->
+            <div class="card-modern">
+                <div class="card-body">
+                    <h2 class="text-subheading mb-4">
+                        <i class="fas fa-chart-bar me-2"></i>
+                        Readability Analysis
+                    </h2>
 
-                <div class="row g-4">
-                    <div class="col-md-4">
-                        <div class="mb-4">
-                            <h3 class="text-body fw-semibold mb-3">Readability Scores</h3>
-                            <div class="d-flex flex-column gap-2">
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Flesch Reading Ease:</span>
-                                    <span id="fleschDetail" class="fw-medium">-</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Flesch-Kincaid Grade:</span>
-                                    <span id="fleschKincaidDetail" class="fw-medium">-</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">SMOG Index:</span>
-                                    <span id="smogDetail" class="fw-medium">-</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Coleman-Liau Index:</span>
-                                    <span id="colemanLiauDetail" class="fw-medium">-</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Gunning Fog:</span>
-                                    <span id="gunningFogDetail" class="fw-medium">-</span>
+                    <div class="row g-4">
+                        <div class="col-md-4">
+                            <div class="mb-4">
+                                <h3 class="text-body fw-semibold mb-3">Readability Scores</h3>
+                                <div class="d-flex flex-column gap-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Flesch Reading Ease:</span>
+                                        <span id="fleschDetail" class="fw-medium">-</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Flesch-Kincaid Grade:</span>
+                                        <span id="fleschKincaidDetail" class="fw-medium">-</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">SMOG Index:</span>
+                                        <span id="smogDetail" class="fw-medium">-</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Coleman-Liau Index:</span>
+                                        <span id="colemanLiauDetail" class="fw-medium">-</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Gunning Fog:</span>
+                                        <span id="gunningFogDetail" class="fw-medium">-</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="col-md-4">
-                        <div class="mb-4">
-                            <h3 class="text-body fw-semibold mb-3">Text Statistics</h3>
-                            <div class="d-flex flex-column gap-2">
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Words:</span>
-                                    <span id="wordsDetail" class="fw-medium">-</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Sentences:</span>
-                                    <span id="sentencesDetail" class="fw-medium">-</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Paragraphs:</span>
-                                    <span id="paragraphsDetail" class="fw-medium">-</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Characters:</span>
-                                    <span id="charactersDetail" class="fw-medium">-</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Syllables:</span>
-                                    <span id="syllablesDetail" class="fw-medium">-</span>
+                        <div class="col-md-4">
+                            <div class="mb-4">
+                                <h3 class="text-body fw-semibold mb-3">Text Statistics</h3>
+                                <div class="d-flex flex-column gap-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Words:</span>
+                                        <span id="wordsDetail" class="fw-medium">-</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Sentences:</span>
+                                        <span id="sentencesDetail" class="fw-medium">-</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Paragraphs:</span>
+                                        <span id="paragraphsDetail" class="fw-medium">-</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Characters:</span>
+                                        <span id="charactersDetail" class="fw-medium">-</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Syllables:</span>
+                                        <span id="syllablesDetail" class="fw-medium">-</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="col-md-4">
-                        <div class="mb-4">
-                            <h3 class="text-body fw-semibold mb-3">Advanced Metrics</h3>
-                            <div class="d-flex flex-column gap-2">
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Avg Syllables/Word:</span>
-                                    <span id="wordSyllablesDetail" class="fw-medium">-</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Complex Words:</span>
-                                    <span id="complexWordsDetail" class="fw-medium">-</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Dale-Chall Score:</span>
-                                    <span id="daleChallDetail" class="fw-medium">-</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Dale-Chall Grade:</span>
-                                    <span id="daleChallGradeDetail" class="fw-medium">-</span>
-                                </div>
-                                <div class="d-flex justify-content-between">
-                                    <span class="text-muted">Spache Score:</span>
-                                    <span id="spacheDetail" class="fw-medium">-</span>
+                        <div class="col-md-4">
+                            <div class="mb-4">
+                                <h3 class="text-body fw-semibold mb-3">Advanced Metrics</h3>
+                                <div class="d-flex flex-column gap-2">
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Avg Syllables/Word:</span>
+                                        <span id="wordSyllablesDetail" class="fw-medium">-</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Complex Words:</span>
+                                        <span id="complexWordsDetail" class="fw-medium">-</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Dale-Chall Score:</span>
+                                        <span id="daleChallDetail" class="fw-medium">-</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Dale-Chall Grade:</span>
+                                        <span id="daleChallGradeDetail" class="fw-medium">-</span>
+                                    </div>
+                                    <div class="d-flex justify-content-between">
+                                        <span class="text-muted">Spache Score:</span>
+                                        <span id="spacheDetail" class="fw-medium">-</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
-        </div>
-{% endblock %}
+            {% endblock %}
 
-{% block extra_scripts %}
-<style>
-    .loading-spinner {
-        border: 3px solid var(--bg-tertiary);
-        border-top: 3px solid var(--accent-color);
-        border-radius: 50%;
-        width: 30px;
-        height: 30px;
-        animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-    }
-</style>
-
-<script>
-class ArticleDisplay {
-            constructor() {
-                this.articleId = this.getArticleIdFromUrl();
-                this.articleUrl = null;
-                this.showLoading();
-                this.initializePage();
-            }
-
-            getArticleIdFromUrl() {
-                const urlParams = new URLSearchParams(window.location.search);
-                return urlParams.get('id');
-            }
-
-            async initializePage() {
-                if (!this.articleId) {
-                    this.showError('No article ID provided');
-                    this.hideLoading();
-                    return;
+            {% block extra_scripts %}
+            <style>
+                .loading-spinner {
+                    border: 3px solid var(--bg-tertiary);
+                    border-top: 3px solid var(--accent-color);
+                    border-radius: 50%;
+                    width: 30px;
+                    height: 30px;
+                    animation: spin 1s linear infinite;
                 }
 
-                // Check if articleId looks like a valid MongoDB ObjectId (24 hex characters)
-                if (!/^[0-9a-fA-F]{24}$/.test(this.articleId)) {
-                    this.showError('Invalid article ID format');
-                    this.hideLoading();
-                    return;
-                }
-
-                try {
-                    await this.loadArticle();
-                    // Load similar articles after the main article is loaded
-                    if (this.articleUrl) {
-                        await this.loadSimilarArticles();
-                    }
-                } catch (error) {
-                    console.error('Error initializing page:', error);
-                    this.showError('Failed to load article');
-                    this.hideLoading();
-                }
-            }
-
-            async loadArticle() {
-                this.showLoading();
-
-                try {
-                    const response = await fetch(`/api/articles/${this.articleId}`);
-
-                    if (!response.ok) {
-                        throw new Error(`HTTP ${response.status}`);
+                @keyframes spin {
+                    0% {
+                        transform: rotate(0deg);
                     }
 
-                    const article = await response.json();
-                    this.displayArticle(article);
-
-                } catch (error) {
-                    console.error('Error loading article:', error);
-                    this.showError(error.message);
-                } finally {
-                    this.hideLoading();
-                }
-            }
-
-            displayArticle(article) {
-                // Store article URL for similar articles
-                this.articleUrl = article.url;
-
-                // Set page title
-                document.title = `${article.title || 'Article'} - News Analyzer`;
-
-                // Article header
-                document.getElementById('articleTitle').textContent = article.title || 'Untitled Article';
-
-                // Article metadata
-                document.getElementById('articleHost').innerHTML = `<i class="fas fa-globe me-1"></i>${article.Host || 'Unknown'}`;
-
-                const dateElement = document.getElementById('articleDate');
-                if (article.publication_date) {
-                    const date = new Date(article.publication_date);
-                    dateElement.innerHTML = `<i class="fas fa-calendar mr-1"></i>${date.toLocaleDateString()}`;
-                } else {
-                    dateElement.innerHTML = `<i class="fas fa-calendar mr-1"></i>No date`;
-                }
-
-                const originElement = document.getElementById('articleOrigin');
-                if (article.origin) {
-                    originElement.innerHTML = `<i class="fas fa-rss mr-1"></i>${new URL(article.origin).hostname}`;
-                } else {
-                    originElement.innerHTML = `<i class="fas fa-rss mr-1"></i>No source`;
-                }
-
-                // External link
-                const externalLink = document.getElementById('externalLink');
-                externalLink.href = article.url;
-
-                // Readability overview cards
-                document.getElementById('fleschScore').textContent = article.Flesch ? article.Flesch.toFixed(1) : '-';
-                document.getElementById('gradeLevel').textContent = article['Flesch Kincaid'] ? article['Flesch Kincaid'].toFixed(1) : '-';
-                document.getElementById('wordCount').textContent = article.words || '-';
-                document.getElementById('sentenceCount').textContent = article.sentences || '-';
-
-                // Article summary (if available)
-                if (article.summary) {
-                    document.getElementById('articleSummary').textContent = article.summary;
-                    const summaryInfo = [];
-                    if (article.summary_model) summaryInfo.push(`Model: ${article.summary_model}`);
-                    if (article.summary_generated_at) {
-                        const genDate = new Date(article.summary_generated_at);
-                        summaryInfo.push(`Generated: ${genDate.toLocaleDateString()}`);
+                    100% {
+                        transform: rotate(360deg);
                     }
-                    document.getElementById('summaryInfo').textContent = summaryInfo.join(' • ');
-                    document.getElementById('summarySection').classList.remove('d-none');
                 }
+            </style>
 
-                // Article content
-                const contentElement = document.getElementById('articleBody');
-                const content = article.content || article['Cleaned Data'] || 'No content available';
-                contentElement.innerHTML = content;
-
-                // Make iframes responsive
-                this.makeIframesResponsive(contentElement);
-
-                // Detailed readability metrics
-                this.displayReadabilityMetrics(article);
-
-                // Show content
-                document.getElementById('articleContent').classList.remove('d-none');
-            }
-
-            makeIframesResponsive(container) {
-                const iframes = container.querySelectorAll('iframe');
-                iframes.forEach(iframe => {
-                    // Skip if already wrapped
-                    if (iframe.parentElement.classList.contains('iframe-container')) {
-                        return;
+            <script>
+                class ArticleDisplay {
+                    constructor() {
+                        this.articleId = this.getArticleIdFromUrl();
+                        this.articleUrl = null;
+                        this.showLoading();
+                        this.initializePage();
                     }
 
-                    // Get iframe dimensions
-                    const width = parseInt(iframe.getAttribute('width') || iframe.style.width || 560);
-                    const height = parseInt(iframe.getAttribute('height') || iframe.style.height || 315);
-
-                    // Calculate aspect ratio
-                    const aspectRatio = height / width;
-                    const paddingBottom = (aspectRatio * 100) + '%';
-
-                    // Create wrapper
-                    const wrapper = document.createElement('div');
-                    wrapper.className = 'iframe-container';
-                    wrapper.style.paddingBottom = paddingBottom;
-
-                    // Check if it's YouTube
-                    const src = iframe.getAttribute('src') || '';
-                    if (src.includes('youtube.com') || src.includes('youtu.be')) {
-                        wrapper.classList.add('youtube-iframe-container');
-                        wrapper.style.paddingBottom = '56.25%'; // Force 16:9 for YouTube
+                    getArticleIdFromUrl() {
+                        const urlParams = new URLSearchParams(window.location.search);
+                        return urlParams.get('id');
                     }
 
-                    // Wrap the iframe
-                    iframe.parentNode.insertBefore(wrapper, iframe);
-                    wrapper.appendChild(iframe);
+                    async initializePage() {
+                        if (!this.articleId) {
+                            this.showError('No article ID provided');
+                            this.hideLoading();
+                            return;
+                        }
 
-                    // Remove original width/height attributes and styles
-                    iframe.removeAttribute('width');
-                    iframe.removeAttribute('height');
-                    iframe.style.width = '';
-                    iframe.style.height = '';
-                });
-            }
+                        // Check if articleId looks like a valid MongoDB ObjectId (24 hex characters)
+                        if (!/^[0-9a-fA-F]{24}$/.test(this.articleId)) {
+                            this.showError('Invalid article ID format');
+                            this.hideLoading();
+                            return;
+                        }
 
-            displayReadabilityMetrics(article) {
-                // Readability scores
-                document.getElementById('fleschDetail').textContent = article.Flesch ? article.Flesch.toFixed(2) : '-';
-                document.getElementById('fleschKincaidDetail').textContent = article['Flesch Kincaid'] ? article['Flesch Kincaid'].toFixed(2) : '-';
-                document.getElementById('smogDetail').textContent = article.Smog ? article.Smog.toFixed(2) : '-';
-                document.getElementById('colemanLiauDetail').textContent = article['Coleman Liau'] ? article['Coleman Liau'].toFixed(2) : '-';
-                document.getElementById('gunningFogDetail').textContent = article['Gunning Fog'] ? article['Gunning Fog'].toFixed(2) : '-';
-
-                // Text statistics
-                document.getElementById('wordsDetail').textContent = article.words || '-';
-                document.getElementById('sentencesDetail').textContent = article.sentences || '-';
-                document.getElementById('paragraphsDetail').textContent = article.paragraphs || '-';
-                document.getElementById('charactersDetail').textContent = article.characters || '-';
-                document.getElementById('syllablesDetail').textContent = article.syllables || '-';
-
-                // Advanced metrics
-                document.getElementById('wordSyllablesDetail').textContent = article['word syllables'] ? article['word syllables'].toFixed(2) : '-';
-                document.getElementById('complexWordsDetail').textContent = article['complex polysillabic words'] || '-';
-                document.getElementById('daleChallDetail').textContent = article['Dale Chall'] ? article['Dale Chall'].toFixed(2) : '-';
-                document.getElementById('daleChallGradeDetail').textContent = article['Dale Chall: Grade'] || '-';
-                document.getElementById('spacheDetail').textContent = article.Spache ? article.Spache.toFixed(2) : '-';
-            }
-
-            async loadSimilarArticles() {
-                // Load both content-based and summary-based similar articles
-                this.loadSimilarArticlesByContent();
-                this.loadSimilarArticlesBySummary();
-            }
-
-            async loadSimilarArticlesByContent() {
-                try {
-                    const response = await fetch(`/api/topics/article/${encodeURIComponent(this.articleUrl)}/similar?limit=5&similarity_threshold=0.6`);
-
-                    if (!response.ok) {
-                        console.warn('Failed to load content-based similar articles:', response.status);
-                        return;
+                        try {
+                            await this.loadArticle();
+                            // Load similar articles after the main article is loaded
+                            if (this.articleUrl) {
+                                await this.loadSimilarArticles();
+                            }
+                        } catch (error) {
+                            console.error('Error initializing page:', error);
+                            this.showError('Failed to load article');
+                            this.hideLoading();
+                        }
                     }
 
-                    const similarArticles = await response.json();
-                    this.displaySimilarArticles(similarArticles, 'content');
+                    async loadArticle() {
+                        this.showLoading();
 
-                } catch (error) {
-                    console.error('Error loading content-based similar articles:', error);
-                }
-            }
+                        try {
+                            const response = await fetch(`/api/articles/${this.articleId}`);
 
-            async loadSimilarArticlesBySummary() {
-                try {
-                    const response = await fetch(`/api/topics/article/${encodeURIComponent(this.articleUrl)}/similar-by-summary?limit=5&similarity_threshold=0.6`);
+                            if (!response.ok) {
+                                throw new Error(`HTTP ${response.status}`);
+                            }
 
-                    if (!response.ok) {
-                        console.warn('Failed to load summary-based similar articles:', response.status);
-                        return;
+                            const article = await response.json();
+                            this.displayArticle(article);
+
+                        } catch (error) {
+                            console.error('Error loading article:', error);
+                            this.showError(error.message);
+                        } finally {
+                            this.hideLoading();
+                        }
                     }
 
-                    const similarArticles = await response.json();
-                    this.displaySimilarArticles(similarArticles, 'summary');
+                    displayArticle(article) {
+                        // Store article URL for similar articles
+                        this.articleUrl = article.url;
 
-                } catch (error) {
-                    console.error('Error loading summary-based similar articles:', error);
-                }
-            }
+                        // Set page title
+                        document.title = `${article.title || 'Article'} - News Analyzer`;
 
-            displaySimilarArticles(articles, mode = 'content') {
-                if (!articles || articles.length === 0) {
-                    return; // Don't show section if no similar articles
-                }
+                        // Article header
+                        document.getElementById('articleTitle').textContent = article.title || 'Untitled Article';
 
-                const isContentMode = mode === 'content';
-                const sectionId = isContentMode ? 'similarArticlesSection' : 'similarArticlesSummarySection';
-                const articlesId = isContentMode ? 'similarArticles' : 'similarArticlesSummary';
-                const countId = isContentMode ? 'similarArticlesCount' : 'similarArticlesSummaryCount';
+                        // Article metadata
+                        document.getElementById('articleHost').innerHTML = `<i class="fas fa-globe me-1"></i>${article.Host || 'Unknown'}`;
 
-                const similarArticlesSection = document.getElementById(sectionId);
-                const similarArticlesDiv = document.getElementById(articlesId);
-                const similarArticlesCount = document.getElementById(countId);
+                        const dateElement = document.getElementById('articleDate');
+                        if (article.publication_date) {
+                            const date = new Date(article.publication_date);
+                            dateElement.innerHTML = `<i class="fas fa-calendar mr-1"></i>${date.toLocaleDateString()}`;
+                        } else {
+                            dateElement.innerHTML = `<i class="fas fa-calendar mr-1"></i>No date`;
+                        }
 
-                similarArticlesCount.textContent = `(${articles.length} found)`;
+                        const originElement = document.getElementById('articleOrigin');
+                        if (article.origin) {
+                            originElement.innerHTML = `<i class="fas fa-rss mr-1"></i>${new URL(article.origin).hostname}`;
+                        } else {
+                            originElement.innerHTML = `<i class="fas fa-rss mr-1"></i>No source`;
+                        }
 
-                similarArticlesDiv.innerHTML = articles.map(article => `
+                        // External link
+                        const externalLink = document.getElementById('externalLink');
+                        externalLink.href = article.url;
+
+                        // Article summary (if available)
+                        if (article.summary) {
+                            document.getElementById('articleSummary').textContent = article.summary;
+                            const summaryInfo = [];
+                            if (article.summary_model) summaryInfo.push(`Model: ${article.summary_model}`);
+                            if (article.summary_generated_at) {
+                                const genDate = new Date(article.summary_generated_at);
+                                summaryInfo.push(`Generated: ${genDate.toLocaleDateString()}`);
+                            }
+                            document.getElementById('summaryInfo').textContent = summaryInfo.join(' • ');
+                            document.getElementById('summarySection').classList.remove('d-none');
+                        }
+
+                        // Article content
+                        const contentElement = document.getElementById('articleBody');
+                        const content = article.content || article['Cleaned Data'] || 'No content available';
+                        contentElement.innerHTML = content;
+
+                        // Make iframes responsive
+                        this.makeIframesResponsive(contentElement);
+
+                        // Detailed readability metrics
+                        this.displayReadabilityMetrics(article);
+
+                        // Show content
+                        document.getElementById('articleContent').classList.remove('d-none');
+                    }
+
+                    makeIframesResponsive(container) {
+                        const iframes = container.querySelectorAll('iframe');
+                        iframes.forEach(iframe => {
+                            // Skip if already wrapped
+                            if (iframe.parentElement.classList.contains('iframe-container')) {
+                                return;
+                            }
+
+                            // Get iframe dimensions
+                            const width = parseInt(iframe.getAttribute('width') || iframe.style.width || 560);
+                            const height = parseInt(iframe.getAttribute('height') || iframe.style.height || 315);
+
+                            // Calculate aspect ratio
+                            const aspectRatio = height / width;
+                            const paddingBottom = (aspectRatio * 100) + '%';
+
+                            // Create wrapper
+                            const wrapper = document.createElement('div');
+                            wrapper.className = 'iframe-container';
+                            wrapper.style.paddingBottom = paddingBottom;
+
+                            // Check if it's YouTube
+                            const src = iframe.getAttribute('src') || '';
+                            if (src.includes('youtube.com') || src.includes('youtu.be')) {
+                                wrapper.classList.add('youtube-iframe-container');
+                                wrapper.style.paddingBottom = '56.25%'; // Force 16:9 for YouTube
+                            }
+
+                            // Wrap the iframe
+                            iframe.parentNode.insertBefore(wrapper, iframe);
+                            wrapper.appendChild(iframe);
+
+                            // Remove original width/height attributes and styles
+                            iframe.removeAttribute('width');
+                            iframe.removeAttribute('height');
+                            iframe.style.width = '';
+                            iframe.style.height = '';
+                        });
+                    }
+
+                    displayReadabilityMetrics(article) {
+                        // Readability scores
+                        document.getElementById('fleschDetail').textContent = article.Flesch ? article.Flesch.toFixed(2) : '-';
+                        document.getElementById('fleschKincaidDetail').textContent = article['Flesch Kincaid'] ? article['Flesch Kincaid'].toFixed(2) : '-';
+                        document.getElementById('smogDetail').textContent = article.Smog ? article.Smog.toFixed(2) : '-';
+                        document.getElementById('colemanLiauDetail').textContent = article['Coleman Liau'] ? article['Coleman Liau'].toFixed(2) : '-';
+                        document.getElementById('gunningFogDetail').textContent = article['Gunning Fog'] ? article['Gunning Fog'].toFixed(2) : '-';
+
+                        // Text statistics
+                        document.getElementById('wordsDetail').textContent = article.words || '-';
+                        document.getElementById('sentencesDetail').textContent = article.sentences || '-';
+                        document.getElementById('paragraphsDetail').textContent = article.paragraphs || '-';
+                        document.getElementById('charactersDetail').textContent = article.characters || '-';
+                        document.getElementById('syllablesDetail').textContent = article.syllables || '-';
+
+                        // Advanced metrics
+                        document.getElementById('wordSyllablesDetail').textContent = article['word syllables'] ? article['word syllables'].toFixed(2) : '-';
+                        document.getElementById('complexWordsDetail').textContent = article['complex polysillabic words'] || '-';
+                        document.getElementById('daleChallDetail').textContent = article['Dale Chall'] ? article['Dale Chall'].toFixed(2) : '-';
+                        document.getElementById('daleChallGradeDetail').textContent = article['Dale Chall: Grade'] || '-';
+                        document.getElementById('spacheDetail').textContent = article.Spache ? article.Spache.toFixed(2) : '-';
+                    }
+
+                    async loadSimilarArticles() {
+                        // Load both content-based and summary-based similar articles
+                        this.loadSimilarArticlesByContent();
+                        this.loadSimilarArticlesBySummary();
+                    }
+
+                    async loadSimilarArticlesByContent() {
+                        try {
+                            const response = await fetch(`/api/topics/article/${encodeURIComponent(this.articleUrl)}/similar?limit=5&similarity_threshold=0.6`);
+
+                            if (!response.ok) {
+                                console.warn('Failed to load content-based similar articles:', response.status);
+                                return;
+                            }
+
+                            const similarArticles = await response.json();
+                            this.displaySimilarArticles(similarArticles, 'content');
+
+                        } catch (error) {
+                            console.error('Error loading content-based similar articles:', error);
+                        }
+                    }
+
+                    async loadSimilarArticlesBySummary() {
+                        try {
+                            const response = await fetch(`/api/topics/article/${encodeURIComponent(this.articleUrl)}/similar-by-summary?limit=5&similarity_threshold=0.6`);
+
+                            if (!response.ok) {
+                                console.warn('Failed to load summary-based similar articles:', response.status);
+                                return;
+                            }
+
+                            const similarArticles = await response.json();
+                            this.displaySimilarArticles(similarArticles, 'summary');
+
+                        } catch (error) {
+                            console.error('Error loading summary-based similar articles:', error);
+                        }
+                    }
+
+                    displaySimilarArticles(articles, mode = 'content') {
+                        if (!articles || articles.length === 0) {
+                            return; // Don't show section if no similar articles
+                        }
+
+                        const isContentMode = mode === 'content';
+                        const sectionId = isContentMode ? 'similarArticlesSection' : 'similarArticlesSummarySection';
+                        const articlesId = isContentMode ? 'similarArticles' : 'similarArticlesSummary';
+                        const countId = isContentMode ? 'similarArticlesCount' : 'similarArticlesSummaryCount';
+
+                        const similarArticlesSection = document.getElementById(sectionId);
+                        const similarArticlesDiv = document.getElementById(articlesId);
+                        const similarArticlesCount = document.getElementById(countId);
+
+                        similarArticlesCount.textContent = `(${articles.length} found)`;
+
+                        similarArticlesDiv.innerHTML = articles.map(article => `
                     <div class="card-modern">
                         <div class="card-body">
                             <div class="d-flex justify-content-between align-items-start">
@@ -648,30 +638,30 @@ class ArticleDisplay {
                     </div>
                 `).join('');
 
-                similarArticlesSection.classList.remove('d-none');
-            }
+                        similarArticlesSection.classList.remove('d-none');
+                    }
 
-            showLoading() {
-                document.getElementById('loadingState').classList.remove('d-none');
-            }
+                    showLoading() {
+                        document.getElementById('loadingState').classList.remove('d-none');
+                    }
 
-            hideLoading() {
-                document.getElementById('loadingState').classList.add('d-none');
-            }
+                    hideLoading() {
+                        document.getElementById('loadingState').classList.add('d-none');
+                    }
 
-            showError(message) {
-                document.getElementById('errorMessage').textContent = message;
-                document.getElementById('errorState').classList.remove('d-none');
-            }
+                    showError(message) {
+                        document.getElementById('errorMessage').textContent = message;
+                        document.getElementById('errorState').classList.remove('d-none');
+                    }
 
-            hideError() {
-                document.getElementById('errorState').classList.add('d-none');
-            }
-        }
+                    hideError() {
+                        document.getElementById('errorState').classList.add('d-none');
+                    }
+                }
 
-// Initialize the application
-document.addEventListener('DOMContentLoaded', () => {
-    new ArticleDisplay();
-});
-</script>
-{% endblock %}
+                // Initialize the application
+                document.addEventListener('DOMContentLoaded', () => {
+                    new ArticleDisplay();
+                });
+            </script>
+            {% endblock %}
