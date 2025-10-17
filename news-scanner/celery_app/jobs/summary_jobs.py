@@ -181,7 +181,7 @@ def generate_article_summary_task(self, article_url: str) -> Dict[str, Any]:
 
 
 @celery_app.task(bind=True, base=CallbackTask, name='celery_app.tasks.process_summary_backlog_task')
-def process_summary_backlog_task(self, batch_size: int = 10, priority: int = 2) -> Dict[str, Any]:
+def process_summary_backlog_task(self, batch_size: int = 1000, priority: int = 2) -> Dict[str, Any]:
     """
     Unified task for processing articles that need summaries.
     - Priority 2: Scheduled processing (low priority)
