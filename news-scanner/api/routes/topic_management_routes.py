@@ -8,11 +8,11 @@ from fastapi import APIRouter, HTTPException, Depends, Form
 from pydantic import BaseModel
 
 from celery_app.tasks import (
-    batch_generate_embeddings,
+    generate_article_embedding,
+    generate_summary_embedding_task,
     group_articles_by_topics,
     generate_shared_summaries,
-    full_topic_analysis_pipeline,
-    batch_generate_summary_embeddings_task
+    full_topic_analysis_pipeline
 )
 from database.connection import get_database
 from motor.motor_asyncio import AsyncIOMotorDatabase
@@ -64,8 +64,13 @@ async def trigger_embedding_generation(
                 message=f"All {total_articles} articles already have embeddings"
             )
 
-        # Queue the task
-        result = batch_generate_embeddings.delay(batch_size)
+        # Queue the task using consolidated function
+        result = generate_article_embedding.apply_async(
+            args=[],
+            kwargs={'batch_size': batch_size, 'priority': 3},
+            queue='ml_queue',
+            priority=3
+        )
 
         return TaskResponse(
             success=True,
@@ -110,9 +115,11 @@ async def trigger_summary_embedding_generation(
             )
 
         # Queue the task
-        result = batch_generate_summary_embeddings_task.apply_async(
-            args=[batch_size],
-            queue='normal'
+        result = generate_summary_embedding_task.apply_async(
+            args=[],
+            kwargs={'batch_size': batch_size, 'priority': 4},
+            queue='ml_queue',
+            priority=4
         )
 
         return TaskResponse(
@@ -446,4 +453,64 @@ async def cleanup_old_topics(
 
     except Exception as e:
         logger.error(f"Error cleaning up old topics: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/group-articles", response_model=TaskResponse)
+async def trigger_article_grouping(
+    similarity_threshold: float = 0.75,
+    min_group_size: int = 2
+):
+    """
+    Trigger article grouping by topics.
+
+    Args:
+        similarity_threshold: Minimum similarity for grouping articles
+        min_group_size: Minimum number of articles per group
+
+    Returns:
+        Task information
+    """
+    try:
+        # Queue the task
+        result = group_articles_by_topics.apply_async(
+            args=[similarity_threshold, min_group_size],
+            queue='ml_queue',
+            priority=2
+        )
+
+        return TaskResponse(
+            success=True,
+            task_id=result.id,
+            message=f"Article grouping queued with similarity threshold {similarity_threshold}"
+        )
+
+    except Exception as e:
+        logger.error(f"Error triggering article grouping: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/generate-shared-summaries", response_model=TaskResponse)
+async def trigger_shared_summaries():
+    """
+    Trigger shared summary generation for topic groups.
+
+    Returns:
+        Task information
+    """
+    try:
+        # Queue the task
+        result = generate_shared_summaries.apply_async(
+            queue='llm_queue',
+            priority=2
+        )
+
+        return TaskResponse(
+            success=True,
+            task_id=result.id,
+            message="Shared summary generation queued"
+        )
+
+    except Exception as e:
+        logger.error(f"Error triggering shared summaries: {e}")
         raise HTTPException(status_code=500, detail=str(e))

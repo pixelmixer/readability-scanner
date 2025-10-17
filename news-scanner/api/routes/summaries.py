@@ -76,11 +76,11 @@ async def trigger_summary_generation(batch_size: int = Form(50)):
         # Get current statistics
         stats = await article_repository.get_summary_statistics()
 
-        # Trigger summary processing
-        task_result = manual_summary_trigger_task.apply_async(
-            args=[batch_size],
-            queue='normal',
-            priority=5
+        # Trigger summary processing with high priority
+        task_result = process_summary_backlog_task.apply_async(
+            args=[batch_size, 8],  # batch_size, priority=8 (high priority for manual)
+            queue='llm_queue',
+            priority=8
         )
 
         return {
@@ -112,7 +112,7 @@ async def trigger_single_article_summary(article_url: str):
         # Trigger summary generation
         task_result = generate_article_summary_task.apply_async(
             args=[article_url],
-            queue='normal',
+            queue='llm_queue',  # Fixed: Use correct queue for summary tasks
             priority=4
         )
 
@@ -292,7 +292,7 @@ async def trigger_publication_date_backfill(batch_size: int = Form(20)):
         # Trigger backfill processing
         task_result = backfill_publication_dates_task.apply_async(
             args=[batch_size],
-            queue='normal',
+            queue='low',  # Fixed: Use correct queue for maintenance tasks
             priority=5
         )
 

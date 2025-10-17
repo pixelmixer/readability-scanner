@@ -181,13 +181,18 @@ def generate_article_summary_task(self, article_url: str) -> Dict[str, Any]:
 
 
 @celery_app.task(bind=True, base=CallbackTask, name='celery_app.tasks.process_summary_backlog_task')
-def process_summary_backlog_task(self, batch_size: int = 10) -> Dict[str, Any]:
+def process_summary_backlog_task(self, batch_size: int = 10, priority: int = 2) -> Dict[str, Any]:
     """
-    Process a batch of articles that need summaries.
-    This task runs periodically to work through the backlog.
+    Unified task for processing articles that need summaries.
+    - Priority 2: Scheduled processing (low priority)
+    - Priority 8: Manual trigger (high priority)
     """
     try:
-        logger.info(f"📚 Processing summary backlog (batch size: {batch_size})")
+        # Priority-based logging
+        if priority >= 8:
+            logger.info(f"🚀 Manual summary processing triggered (batch size: {batch_size})")
+        else:
+            logger.info(f"📚 Processing summary backlog (batch size: {batch_size})")
 
         # Run the async operations in sync context
         loop = asyncio.new_event_loop()

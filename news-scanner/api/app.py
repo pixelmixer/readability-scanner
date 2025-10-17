@@ -52,13 +52,14 @@ async def initialize_topic_analysis():
             logger.info("🚀 Queueing batch embedding generation for existing articles...")
             try:
                 # Import task locally to avoid circular imports
-                from celery_app.tasks import batch_generate_embeddings
+                from celery_app.tasks import generate_article_embedding
 
                 # Queue the task asynchronously with proper priority
-                batch_generate_embeddings.apply_async(
-                    args=[50],
-                    queue='normal',
-                    priority=3  # Same as scheduled summary tasks
+                generate_article_embedding.apply_async(
+                    args=[],
+                    kwargs={'batch_size': 50, 'priority': 3},
+                    queue='ml_queue',
+                    priority=3
                 )
                 logger.info("✓ Batch embedding generation queued")
             except Exception as e:

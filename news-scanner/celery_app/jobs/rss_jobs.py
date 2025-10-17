@@ -92,13 +92,18 @@ def manual_refresh_source_task(self, source_id: str, source_url: str) -> Dict[st
 
 
 @celery_app.task(bind=True, base=CallbackTask, name='celery_app.tasks.scan_single_source_task', priority=5)
-def scan_single_source_task(self, source_url: str, priority: int = 5) -> Dict[str, Any]:
+def scan_single_source_task(self, source_url: str, source_name: str = None, priority: int = 5) -> Dict[str, Any]:
     """
-    Normal priority task for scanning individual RSS sources.
-    Used for scheduled scans to distribute load over time.
+    Unified task for scanning individual RSS sources.
+    - Priority 5: Scheduled scans (normal priority)
+    - Priority 10: Manual refresh (high priority)
     """
     try:
-        logger.info(f"📡 Scanning RSS source: {source_url}")
+        # Priority-based logging
+        if priority >= 8:
+            logger.info(f"🔄 Manual refresh requested for source: {source_url}")
+        else:
+            logger.info(f"📡 Scanning RSS source: {source_url}")
 
         # Run the async scanner in sync context
         loop = asyncio.new_event_loop()
@@ -108,11 +113,12 @@ def scan_single_source_task(self, source_url: str, priority: int = 5) -> Dict[st
             # Ensure database connection
             loop.run_until_complete(ensure_database_connection())
 
-            # Get source information
-            source = loop.run_until_complete(
-                source_repository.get_source_by_url(source_url)
-            )
-            source_name = source.name if source else source_url
+            # Use provided source_name or get from database
+            if not source_name:
+                source = loop.run_until_complete(
+                    source_repository.get_source_by_url(source_url)
+                )
+                source_name = source.name if source else source_url
 
             # Perform the scan
             result = loop.run_until_complete(
@@ -271,9 +277,9 @@ def _trigger_summary_jobs_for_new_articles(new_articles: list[Dict[str, Any]]) -
     try:
         # Import the required tasks
         from .summary_jobs import generate_article_summary_task
-        from ..tasks import generate_article_embedding
+        from ..tasks import generate_article_embedding, process_new_article
 
-        # Queue summary and embedding tasks for each new article
+        # Queue summary, embedding, and topic analysis tasks for each new article
         for article in new_articles:
             article_url = article.get('url')
             if article_url:
@@ -281,18 +287,26 @@ def _trigger_summary_jobs_for_new_articles(new_articles: list[Dict[str, Any]]) -
                     # Queue summary task (priority 4 - after scanning)
                     summary_result = generate_article_summary_task.apply_async(
                         args=[article_url],
-                        queue='normal',
+                        queue='llm_queue',  # Fixed: Use correct queue for summary tasks
                         priority=4  # Medium priority for summaries
                     )
                     logger.info(f"📝 Queued summary job for new article: {article_url} (task: {summary_result.id})")
 
-                    # Queue embedding task (priority 3 - lowest priority)
+                    # Queue embedding task (priority 3 - for ML processing)
                     embedding_result = generate_article_embedding.apply_async(
                         args=[article_url],
-                        queue='normal',
+                        queue='ml_queue',  # Fixed: Use correct queue for embedding tasks
                         priority=3  # Lower priority for embeddings
                     )
                     logger.info(f"🧠 Queued embedding job for new article: {article_url} (task: {embedding_result.id})")
+
+                    # Queue topic analysis task (priority 2 - lowest priority, runs after embedding)
+                    topic_result = process_new_article.apply_async(
+                        args=[article_url],
+                        queue='ml_queue',  # Use ML queue for topic analysis
+                        priority=2  # Lowest priority, runs after embedding
+                    )
+                    logger.info(f"🔍 Queued topic analysis job for new article: {article_url} (task: {topic_result.id})")
 
                 except Exception as e:
                     logger.error(f"❌ Failed to queue processing jobs for {article_url}: {e}")

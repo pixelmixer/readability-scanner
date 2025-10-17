@@ -273,27 +273,8 @@ class ArticleScanner:
             # Save to database and get creation status
             success, was_new = await article_repository.upsert_article_with_status(content_data)
 
-            # If article was successfully saved and is new, trigger embedding generation
-            if success and was_new:
-                try:
-                    from celery_app.tasks import generate_article_embedding, process_new_article
-                    # Queue embedding generation asynchronously with high priority
-                    generate_article_embedding.apply_async(
-                        args=[content_data['url']],
-                        queue='normal',
-                        priority=4  # Higher priority than summary tasks
-                    )
-                    self.logger.debug(f"Queued embedding generation for new article: {content_data['url']}")
-
-                    # Queue topic analysis for new article (lower priority, runs after embedding)
-                    process_new_article.apply_async(
-                        args=[content_data['url']],
-                        queue='normal',
-                        priority=3  # Lower priority than embedding generation
-                    )
-                    self.logger.debug(f"Queued topic analysis for new article: {content_data['url']}")
-                except Exception as e:
-                    self.logger.warning(f"Failed to queue processing for {content_data['url']}: {e}")
+            # Note: Task queuing is now handled by the RSS scanning job after all articles are processed
+            # This prevents duplicate tasks and ensures proper coordination
 
             return success, was_new
 

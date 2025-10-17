@@ -109,13 +109,14 @@ class TopicAnalysisScheduler:
             self.logger.info("🔍 Starting scheduled embedding generation...")
 
             # Import task locally to avoid circular imports
-            from celery_app.tasks import batch_generate_embeddings
+            from celery_app.tasks import generate_article_embedding
 
             # Queue the task with proper priority
-            result = batch_generate_embeddings.apply_async(
-                args=[100],
-                queue='normal',
-                priority=3  # Same as scheduled summary tasks
+            result = generate_article_embedding.apply_async(
+                args=[],
+                kwargs={'batch_size': 100, 'priority': 3},
+                queue='ml_queue',
+                priority=3
             )
 
             self.logger.info(f"✓ Embedding generation task queued: {result.id}")
@@ -129,13 +130,14 @@ class TopicAnalysisScheduler:
             self.logger.info("🧠 Starting scheduled summary embedding generation...")
 
             # Import task locally to avoid circular imports
-            from celery_app.tasks import batch_generate_summary_embeddings_task
+            from celery_app.tasks import generate_summary_embedding_task
 
             # Queue the task with proper priority
-            result = batch_generate_summary_embeddings_task.apply_async(
-                args=[50],
-                queue='normal',
-                priority=3  # Same as content embeddings
+            result = generate_summary_embedding_task.apply_async(
+                args=[],
+                kwargs={'batch_size': 50, 'priority': 3},
+                queue='ml_queue',
+                priority=3
             )
 
             self.logger.info(f"✓ Summary embedding generation task queued: {result.id}")
@@ -154,7 +156,7 @@ class TopicAnalysisScheduler:
             # Queue the task with proper priority
             result = group_articles_by_topics.apply_async(
                 args=[0.75, 2],
-                queue='normal',
+                queue='ml_queue',  # Fixed: Use correct queue for ML tasks
                 priority=2  # Lower than embeddings
             )
 
@@ -174,7 +176,7 @@ class TopicAnalysisScheduler:
             # Queue the task with proper priority
             result = generate_shared_summaries.apply_async(
                 args=[],
-                queue='normal',
+                queue='llm_queue',  # Fixed: Use correct queue for LLM tasks
                 priority=2  # Lower than embeddings
             )
 

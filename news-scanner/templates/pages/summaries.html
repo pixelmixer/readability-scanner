@@ -210,31 +210,97 @@
                         </div>
                     </div>
 
+                    <!-- Scheduled Tasks Info -->
+                    <div class="row mb-3">
+                        <div class="col-12">
+                            <div class="alert alert-light">
+                                <h6 class="mb-2"><i class="fas fa-clock"></i> Automated Tasks</h6>
+                                <small class="text-muted">
+                                    <strong>RSS Scanning:</strong> Every hour •
+                                    <strong>Summary Backlog:</strong> Every 30 minutes •
+                                    <strong>Daily Topics:</strong> Every hour •
+                                    <strong>Topic Analysis:</strong> Weekly (Sundays 2 AM)
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+
                     <!-- Job Triggers -->
                     <div class="row">
-                        <div class="col-md-6">
-                            <h6>RSS & Content Jobs</h6>
+                        <!-- RSS & Content Jobs -->
+                        <div class="col-md-4">
+                            <h6><i class="fas fa-rss text-primary"></i> RSS & Content</h6>
                             <div class="btn-group-vertical w-100 mb-3" role="group">
                                 <button type="button" class="btn btn-outline-primary" id="trigger-scan-btn">
-                                    <i class="fas fa-rss"></i> Scan RSS Sources
-                                </button>
-                                <button type="button" class="btn btn-outline-info" id="trigger-backlog-btn">
-                                    <i class="fas fa-clock"></i> Process Summary Backlog
+                                    <i class="fas fa-rss"></i> Scan All RSS Sources
                                 </button>
                             </div>
                         </div>
-                        <div class="col-md-6">
-                            <h6>Data Processing Jobs</h6>
+
+                        <!-- Summary & LLM Jobs -->
+                        <div class="col-md-4">
+                            <h6><i class="fas fa-file-text text-success"></i> Summary & LLM</h6>
                             <div class="btn-group-vertical w-100 mb-3" role="group">
                                 <button type="button" class="btn btn-outline-success" id="trigger-summary-manual-btn">
                                     <i class="fas fa-file-text"></i> Generate Summaries
+                                    <small class="d-block text-muted">Manual Trigger</small>
                                 </button>
                                 <button type="button" class="btn btn-outline-info" id="trigger-summary-embeddings-btn">
                                     <i class="fas fa-brain"></i> Generate Summary Embeddings
                                 </button>
+                                <button type="button" class="btn btn-outline-warning" id="trigger-daily-topics-btn">
+                                    <i class="fas fa-calendar-day"></i> Generate Daily Topics
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="trigger-shared-summaries-btn">
+                                    <i class="fas fa-users"></i> Generate Shared Summaries
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- ML & Data Processing Jobs -->
+                        <div class="col-md-4">
+                            <h6><i class="fas fa-robot text-info"></i> ML & Data Processing</h6>
+                            <div class="btn-group-vertical w-100 mb-3" role="group">
+                                <button type="button" class="btn btn-outline-info" id="trigger-embeddings-btn">
+                                    <i class="fas fa-vector-square"></i> Generate Article Embeddings
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="trigger-topic-grouping-btn">
+                                    <i class="fas fa-layer-group"></i> Group Articles by Topics
+                                </button>
+                                <button type="button" class="btn btn-outline-secondary" id="trigger-full-pipeline-btn">
+                                    <i class="fas fa-cogs"></i> Full Topic Analysis Pipeline
+                                </button>
                                 <button type="button" class="btn btn-outline-secondary" id="trigger-dates-btn">
                                     <i class="fas fa-calendar"></i> Backfill Publication Dates
                                 </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Batch Size Controls -->
+                    <div class="row mt-3">
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h6 class="mb-0"><i class="fas fa-sliders-h"></i> Batch Size Controls</h6>
+                                </div>
+                                <div class="card-body">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <label for="summary-batch-size" class="form-label">Summary Generation</label>
+                                            <input type="number" class="form-control" id="summary-batch-size" value="50" min="1" max="200">
+                                            <small class="form-text text-muted">Manual trigger only</small>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="embedding-batch-size" class="form-label">Embeddings</label>
+                                            <input type="number" class="form-control" id="embedding-batch-size" value="100" min="1" max="500">
+                                        </div>
+                                        <div class="col-md-4">
+                                            <label for="dates-batch-size" class="form-label">Date Backfill</label>
+                                            <input type="number" class="form-control" id="dates-batch-size" value="20" min="1" max="100">
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -614,38 +680,47 @@ $(document).ready(function() {
     // Set up event listeners
     $('#load-articles-btn').click(loadArticlesWithoutSummaries);
 
-    // Job trigger buttons
+    // Job trigger buttons - RSS & Content
     $('#trigger-scan-btn').click(function() {
-        triggerJob('scan', '/summaries/jobs/trigger-scan');
+        triggerJob('RSS Scan', '/summaries/jobs/trigger-scan');
     });
 
-
-    $('#trigger-backlog-btn').click(function() {
-        const batchSize = prompt('Enter batch size for backlog processing (default: 10):', '10');
-        if (batchSize !== null) {
-            triggerJob('backlog', '/summaries/jobs/trigger-backlog', { batch_size: parseInt(batchSize) || 10 });
-        }
-    });
-
+    // Job trigger buttons - Summary & LLM
     $('#trigger-summary-manual-btn').click(function() {
-        const batchSize = prompt('Enter batch size for summary generation (default: 50):', '50');
-        if (batchSize !== null) {
-            triggerJob('summary-manual', '/summaries/trigger', { batch_size: parseInt(batchSize) || 50 });
-        }
-    });
-
-    $('#trigger-dates-btn').click(function() {
-        const batchSize = prompt('Enter batch size for date backfill (default: 20):', '20');
-        if (batchSize !== null) {
-            triggerJob('dates', '/summaries/backfill-dates', { batch_size: parseInt(batchSize) || 20 });
-        }
+        const batchSize = parseInt($('#summary-batch-size').val()) || 50;
+        triggerJob('Summary Generation', '/summaries/trigger', { batch_size: batchSize });
     });
 
     $('#trigger-summary-embeddings-btn').click(function() {
-        const batchSize = prompt('Enter batch size for summary embedding generation (default: 50):', '50');
-        if (batchSize !== null) {
-            triggerSummaryEmbeddings(parseInt(batchSize) || 50);
-        }
+        const batchSize = parseInt($('#embedding-batch-size').val()) || 50;
+        triggerSummaryEmbeddings(batchSize);
+    });
+
+    $('#trigger-daily-topics-btn').click(function() {
+        triggerJob('Daily Topics', '/daily-topics/regenerate');
+    });
+
+    $('#trigger-shared-summaries-btn').click(function() {
+        triggerJob('Shared Summaries', '/topic-management/generate-shared-summaries');
+    });
+
+    // Job trigger buttons - ML & Data Processing
+    $('#trigger-embeddings-btn').click(function() {
+        const batchSize = parseInt($('#embedding-batch-size').val()) || 100;
+        triggerEmbeddings(batchSize);
+    });
+
+    $('#trigger-topic-grouping-btn').click(function() {
+        triggerJob('Topic Grouping', '/topic-management/group-articles');
+    });
+
+    $('#trigger-full-pipeline-btn').click(function() {
+        triggerJob('Full Pipeline', '/topic-management/run-full-pipeline');
+    });
+
+    $('#trigger-dates-btn').click(function() {
+        const batchSize = parseInt($('#dates-batch-size').val()) || 20;
+        triggerJob('Date Backfill', '/summaries/backfill-dates', { batch_size: batchSize });
     });
 
     // Auto-refresh queue status every 30 seconds
@@ -672,6 +747,31 @@ function triggerSummaryEmbeddings(batchSize) {
         .fail(function(xhr) {
             console.error('Error triggering summary embeddings:', xhr);
             showToast('Job Failed', 'Error starting summary embedding generation. Please try again.', 'error');
+        })
+        .always(function() {
+            button.prop('disabled', false).html(originalText);
+        });
+}
+
+function triggerEmbeddings(batchSize) {
+    const button = $('#trigger-embeddings-btn');
+    const originalText = button.html();
+
+    button.prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Starting...');
+
+    $.post('/api/topic-management/generate-embeddings', { batch_size: batchSize })
+        .done(function(response) {
+            if (response.success) {
+                addJobToHistory('Article Embeddings', response.task_id, 'PENDING');
+                showToast('Article Embeddings Started', response.message, 'success');
+                loadQueueStatus();
+            } else {
+                showToast('Article Embeddings Failed', response.detail || 'Unknown error', 'error');
+            }
+        })
+        .fail(function(xhr) {
+            console.error('Error triggering article embeddings:', xhr);
+            showToast('Article Embeddings Failed', 'Error starting article embeddings. Please try again.', 'error');
         })
         .always(function() {
             button.prop('disabled', false).html(originalText);

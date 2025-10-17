@@ -61,10 +61,19 @@ from celery_app.celery_worker import celery_app
 
 # Register topic analysis tasks as Celery tasks
 @celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.generate_article_embedding', priority=3)
-def generate_article_embedding(self, article_url: str):
-    """Celery task wrapper for generate_article_embedding. Priority 3 (lowest priority for embeddings)."""
-    # Run the synchronous wrapper function
-    return _generate_article_embedding(article_url)
+def generate_article_embedding(self, article_url: str = None, batch_size: int = 1, priority: int = 3):
+    """
+    Unified task for generating article embeddings.
+    - Single article: article_url provided, batch_size=1
+    - Batch processing: article_url=None, batch_size>1
+    - Priority 3: Normal processing
+    """
+    if batch_size > 1:
+        # Batch processing
+        return _batch_generate_embeddings(batch_size)
+    else:
+        # Single article processing
+        return _generate_article_embedding(article_url)
 
 @celery_app.task(bind=True, base=BaseTask, name='celery_app.tasks.batch_generate_embeddings', priority=3)
 def batch_generate_embeddings(self, batch_size: int = 100):

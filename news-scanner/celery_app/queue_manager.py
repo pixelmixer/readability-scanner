@@ -39,11 +39,11 @@ class QueueManager:
         try:
             logger.info(f"🔄 Queueing manual refresh for source: {source_url}")
 
-            # Submit high-priority task
-            task_result = tasks.manual_refresh_source_task.apply_async(
-                args=[source_id, source_url],
-                queue='high',
-                priority=10  # Highest priority
+            # Submit high-priority task using consolidated scan task
+            task_result = tasks.scan_single_source_task.apply_async(
+                args=[source_url, None, 10],  # source_url, source_name=None, priority=10
+                queue='normal',  # Use normal queue, priority handles execution order
+                priority=10  # Highest priority for manual refresh
             )
 
             logger.info(f"📤 Manual refresh queued with task ID: {task_result.id}")
