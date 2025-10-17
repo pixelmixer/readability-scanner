@@ -77,6 +77,38 @@ class RegenerateResponse(BaseModel):
     message: str
 
 
+def get_most_recent_article_date(articles: List[Dict[str, Any]]) -> datetime:
+    """
+    Get the most recent publication_date from articles in a topic group.
+
+    Args:
+        articles: List of article dictionaries
+
+    Returns:
+        Most recent publication_date as datetime, or datetime.min if none found
+    """
+    most_recent = datetime.min
+
+    for article in articles:
+        pub_date = article.get('publication_date')
+        if pub_date:
+            # Handle both datetime objects and ISO string dates
+            if isinstance(pub_date, str):
+                try:
+                    pub_date = datetime.fromisoformat(pub_date.replace('Z', '+00:00'))
+                except (ValueError, AttributeError):
+                    continue
+            elif isinstance(pub_date, datetime):
+                pass
+            else:
+                continue
+
+            if pub_date > most_recent:
+                most_recent = pub_date
+
+    return most_recent
+
+
 @router.get("/today", response_model=DailyTopicsResponse)
 async def get_todays_topics(db: AsyncIOMotorDatabase = Depends(get_database)):
     """
@@ -88,8 +120,8 @@ async def get_todays_topics(db: AsyncIOMotorDatabase = Depends(get_database)):
     try:
         topics_collection = db["daily_topics"]
 
-        # Get all topic groups, sorted by date_generated (newest first)
-        cursor = topics_collection.find({}).sort("date_generated", -1)
+        # Get all topic groups (no initial sorting)
+        cursor = topics_collection.find({})
         topic_docs = await cursor.to_list(length=None)
 
         logger.info(f"Found {len(topic_docs)} topic groups")
@@ -120,6 +152,9 @@ async def get_todays_topics(db: AsyncIOMotorDatabase = Depends(get_database)):
                 primary_image=primary_image,
                 secondary_image=secondary_image
             ))
+
+        # Sort topic groups by most recent article publication_date (newest first)
+        topic_groups.sort(key=lambda tg: get_most_recent_article_date(tg.articles), reverse=True)
 
         return DailyTopicsResponse(
             success=True,
