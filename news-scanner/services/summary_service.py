@@ -4,6 +4,7 @@ Summary generation service using LLM provider abstraction.
 
 import logging
 import asyncio
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Dict, Any
@@ -331,6 +332,8 @@ Article Summaries (Your Source Material):
             # Prepare prompt
             headline_prompt = """You are a headline writer for a major news publication. Create a short, punchy headline (5-8 words maximum) that captures the main newsworthy angle of this topic. The headline should be clear, engaging, and follow AP style.
 
+IMPORTANT: Return ONLY the headline text with no formatting, no markdown, no "Headline:" prefix, no asterisks, no bold text, and no other formatting characters. Just plain text.
+
 """
 
             if combined_summary:
@@ -341,7 +344,7 @@ Article Summaries (Your Source Material):
                     headline_prompt += f"{i}. {summary}\n"
                 headline_prompt += "\n"
 
-            headline_prompt += "Write a headline (5-8 words, AP style, no punctuation at end):"
+            headline_prompt += "Write a headline (5-8 words, AP style, no punctuation at end). Return only the headline text with no formatting:"
 
             logger.info(f"Generating topic headline")
 
@@ -362,6 +365,16 @@ Article Summaries (Your Source Material):
                     headline = choices[0].get("message", {}).get("content", "").strip()
                     # Remove quotes if LLM added them
                     headline = headline.strip('"\'')
+
+                    # Clean up any markdown formatting that might have been added
+                    # Remove markdown bold formatting
+                    headline = re.sub(r'\*\*(.*?)\*\*', r'\1', headline)
+                    # Remove any "Headline:" prefix
+                    headline = re.sub(r'^Headline:\s*', '', headline, flags=re.IGNORECASE)
+                    # Remove any other markdown formatting
+                    headline = re.sub(r'[*_`]', '', headline)
+                    # Clean up extra whitespace
+                    headline = ' '.join(headline.split())
 
                     if headline:
                         return {
