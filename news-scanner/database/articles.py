@@ -105,8 +105,9 @@ class ArticleRepository:
             current_time = ensure_utc_datetime(datetime.now())
 
             if "publication_date" not in article_data or article_data["publication_date"] is None:
-                # No publication date, use current time
-                article_data["publication_date"] = current_time
+                # No publication date - reject the article
+                logger.warning(f"Article rejected: missing publication_date for {article_data.get('url')}")
+                return False
             else:
                 # Normalize publication date to UTC
                 normalized_pub_date = normalize_date(article_data["publication_date"])
@@ -114,9 +115,9 @@ class ArticleRepository:
                     article_data["publication_date"] = normalized_pub_date
                     article_data["analysis_date"] = current_time
                 else:
-                    # If normalization fails, use current time
-                    logger.warning(f"Failed to normalize publication_date for {article_data.get('url')}, using current time")
-                    article_data["publication_date"] = current_time
+                    # If normalization fails, reject the article
+                    logger.warning(f"Article rejected: failed to normalize publication_date for {article_data.get('url')}")
+                    return False
 
             # Extract hostname if not provided
             if "Host" not in article_data and "url" in article_data:
@@ -160,8 +161,9 @@ class ArticleRepository:
             current_time = ensure_utc_datetime(datetime.now())
 
             if "publication_date" not in article_data or article_data["publication_date"] is None:
-                # No publication date, use current time
-                article_data["publication_date"] = current_time
+                # No publication date - reject the article
+                logger.warning(f"Article rejected: missing publication_date for {article_data.get('url')}")
+                return False, False
             else:
                 # Normalize publication date to UTC
                 normalized_pub_date = normalize_date(article_data["publication_date"])
@@ -169,9 +171,9 @@ class ArticleRepository:
                     article_data["publication_date"] = normalized_pub_date
                     article_data["analysis_date"] = current_time
                 else:
-                    # If normalization fails, use current time
-                    logger.warning(f"Failed to normalize publication_date for {article_data.get('url')}, using current time")
-                    article_data["publication_date"] = current_time
+                    # If normalization fails, reject the article
+                    logger.warning(f"Article rejected: failed to normalize publication_date for {article_data.get('url')}")
+                    return False, False
 
             # Extract hostname if not provided
             if "Host" not in article_data and "url" in article_data:

@@ -178,6 +178,11 @@ class RSSParser:
                         else:
                             self.logger.debug(f"Failed to parse date from field '{date_field}': {date_value}")
 
+            # Skip articles without publication dates
+            if not pub_date:
+                self.logger.warning(f"RSS entry missing publication date, skipping: {article_url} - '{title}'")
+                return None
+
             # Extract content/summary
             content = ''
             if hasattr(entry, 'content') and entry.content:
